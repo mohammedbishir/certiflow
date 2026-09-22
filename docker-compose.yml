@@ -1,0 +1,21 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: certiflow-postgres
+    restart: unless-stopped
+    ports:
+      - "54329:5432"
+    environment:
+      POSTGRES_USER: certiflow
+      POSTGRES_PASSWORD: certiflow
+      POSTGRES_DB: certiflow
+    volumes:
+      - certiflow_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U certiflow -d certiflow"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  certiflow_postgres_data:
