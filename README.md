@@ -74,6 +74,11 @@ pnpm dev
 | POST | `/templates` | Bearer + ADMIN |
 | GET | `/templates/:id` | Bearer |
 | PATCH | `/templates/:id` | Bearer + ADMIN |
+| POST | `/templates/:id/background` | Bearer + ADMIN |
+| DELETE | `/templates/:id/background` | Bearer + ADMIN |
+| POST | `/templates/:id/pdf` | Bearer + ADMIN |
+| DELETE | `/templates/:id/pdf` | Bearer + ADMIN |
+| POST | `/templates/:id/preview` | Bearer + ADMIN |
 | DELETE | `/templates/:id` | Bearer + ADMIN |
 | GET | `/public/events/:token` | Public |
 | POST | `/public/events/:token/register` | Public |

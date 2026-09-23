@@ -7,6 +7,7 @@ const apiOrigin =
 
 const nextConfig: NextConfig = {
   allowedDevOrigins: ["192.168.68.56"],
+  transpilePackages: ["pdfjs-dist"],
   async rewrites() {
     return [
       {

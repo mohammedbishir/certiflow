@@ -1,6 +1,5 @@
 import { getAccessToken } from "@/lib/auth";
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
+import { getApiBase } from "@/lib/api";
 
 export type TemplateType = "PARTICIPATION" | "COMPLETION" | "ACHIEVEMENT";
 
@@ -10,6 +9,12 @@ export type CertificateTemplate = {
   name: string;
   templateType: TemplateType;
   backgroundUrl: string | null;
+  templatePdfUrl: string | null;
+  designJson: Record<string, unknown> | null;
+  nameXPercent: number;
+  nameYPercent: number;
+  nameFontSize: number;
+  nameColor: string;
   titleText: string;
   subtitleText: string | null;
   bodyText: string | null;
@@ -21,20 +26,29 @@ export type CertificateTemplate = {
 export type TemplateInput = {
   name: string;
   templateType?: TemplateType;
-  backgroundUrl?: string;
+  backgroundUrl?: string | null;
   titleText?: string;
   subtitleText?: string;
   bodyText?: string;
+  nameXPercent?: number;
+  nameYPercent?: number;
+  nameFontSize?: number;
+  nameColor?: string;
+  designJson?: Record<string, unknown>;
   isActive?: boolean;
 };
 
-function authHeaders() {
+function authHeaders(json = true) {
   const token = getAccessToken();
   if (!token) throw new Error("Not authenticated");
-  return {
-    Authorization: `Bearer ${token}`,
-    "Content-Type": "application/json",
-  };
+  return json
+    ? {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      }
+    : {
+        Authorization: `Bearer ${token}`,
+      };
 }
 
 async function parseResponse(response: Response) {
@@ -51,22 +65,30 @@ async function parseResponse(response: Response) {
   return data;
 }
 
+export function templateAssetUrl(path: string | null | undefined) {
+  if (!path) return null;
+  if (path.startsWith("http://") || path.startsWith("https://")) {
+    return path;
+  }
+  return `${getApiBase()}${path.startsWith("/") ? path : `/${path}`}`;
+}
+
 export async function listTemplates(): Promise<CertificateTemplate[]> {
-  const response = await fetch(`${API_URL}/templates`, {
+  const response = await fetch(`${getApiBase()}/templates`, {
     headers: authHeaders(),
   });
   return (await parseResponse(response)) as CertificateTemplate[];
 }
 
 export async function listActiveTemplates(): Promise<CertificateTemplate[]> {
-  const response = await fetch(`${API_URL}/templates/active`, {
+  const response = await fetch(`${getApiBase()}/templates/active`, {
     headers: authHeaders(),
   });
   return (await parseResponse(response)) as CertificateTemplate[];
 }
 
 export async function seedDefaultTemplates(): Promise<CertificateTemplate[]> {
-  const response = await fetch(`${API_URL}/templates/seed-defaults`, {
+  const response = await fetch(`${getApiBase()}/templates/seed-defaults`, {
     method: "POST",
     headers: authHeaders(),
   });
@@ -74,14 +96,14 @@ export async function seedDefaultTemplates(): Promise<CertificateTemplate[]> {
 }
 
 export async function getTemplate(id: string): Promise<CertificateTemplate> {
-  const response = await fetch(`${API_URL}/templates/${id}`, {
+  const response = await fetch(`${getApiBase()}/templates/${id}`, {
     headers: authHeaders(),
   });
   return (await parseResponse(response)) as CertificateTemplate;
 }
 
 export async function createTemplate(input: TemplateInput) {
-  const response = await fetch(`${API_URL}/templates`, {
+  const response = await fetch(`${getApiBase()}/templates`, {
     method: "POST",
     headers: authHeaders(),
     body: JSON.stringify(input),
@@ -92,8 +114,11 @@ export async function createTemplate(input: TemplateInput) {
   };
 }
 
-export async function updateTemplate(id: string, input: Partial<TemplateInput>) {
-  const response = await fetch(`${API_URL}/templates/${id}`, {
+export async function updateTemplate(
+  id: string,
+  input: Partial<TemplateInput>,
+) {
+  const response = await fetch(`${getApiBase()}/templates/${id}`, {
     method: "PATCH",
     headers: authHeaders(),
     body: JSON.stringify(input),
@@ -104,8 +129,88 @@ export async function updateTemplate(id: string, input: Partial<TemplateInput>) 
   };
 }
 
+export async function uploadTemplateBackground(id: string, file: File) {
+  const body = new FormData();
+  body.append("file", file);
+
+  const response = await fetch(`${getApiBase()}/templates/${id}/background`, {
+    method: "POST",
+    headers: authHeaders(false),
+    body,
+  });
+  return (await parseResponse(response)) as {
+    message: string;
+    template: CertificateTemplate;
+  };
+}
+
+export async function clearTemplateBackground(id: string) {
+  const response = await fetch(`${getApiBase()}/templates/${id}/background`, {
+    method: "DELETE",
+    headers: authHeaders(),
+  });
+  return (await parseResponse(response)) as {
+    message: string;
+    template: CertificateTemplate;
+  };
+}
+
+export async function uploadTemplatePdf(id: string, file: File) {
+  const body = new FormData();
+  body.append("file", file);
+
+  const response = await fetch(`${getApiBase()}/templates/${id}/pdf`, {
+    method: "POST",
+    headers: authHeaders(false),
+    body,
+  });
+  return (await parseResponse(response)) as {
+    message: string;
+    template: CertificateTemplate;
+  };
+}
+
+export async function clearTemplatePdf(id: string) {
+  const response = await fetch(`${getApiBase()}/templates/${id}/pdf`, {
+    method: "DELETE",
+    headers: authHeaders(),
+  });
+  return (await parseResponse(response)) as {
+    message: string;
+    template: CertificateTemplate;
+  };
+}
+
+export async function previewTemplateCertificate(
+  id: string,
+  input: {
+    sampleName?: string;
+    nameXPercent?: number;
+    nameYPercent?: number;
+    nameFontSize?: number;
+    nameColor?: string;
+  } = {},
+) {
+  const response = await fetch(`${getApiBase()}/templates/${id}/preview`, {
+    method: "POST",
+    headers: authHeaders(),
+    body: JSON.stringify(input),
+  });
+
+  if (!response.ok) {
+    const data = await response.json().catch(() => ({}));
+    throw new Error(
+      typeof data.message === "string"
+        ? data.message
+        : "Failed to generate preview",
+    );
+  }
+
+  return response.blob();
+}
+
 export async function deleteTemplate(id: string) {
-  const response = await fetch(`${API_URL}/templates/${id}`, {
+  const response = await fetch(`${getApiBase()}/templates/${id}`, {
     method: "DELETE",
     headers: authHeaders(),
   });

@@ -59,6 +59,13 @@ export class CertificatesService {
       titleText: template?.titleText ?? 'Certificate of Participation',
       subtitleText: template?.subtitleText ?? 'This is to certify that',
       bodyText: template?.bodyText ?? 'has successfully participated in',
+      backgroundUrl: template?.backgroundUrl,
+      templatePdfUrl: template?.templatePdfUrl,
+      designJson: template?.designJson,
+      nameXPercent: template?.nameXPercent,
+      nameYPercent: template?.nameYPercent,
+      nameFontSize: template?.nameFontSize,
+      nameColor: template?.nameColor,
     });
 
     return this.prisma.certificate.create({

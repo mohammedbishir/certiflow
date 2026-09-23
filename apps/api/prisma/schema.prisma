@@ -67,6 +67,12 @@ model CertificateTemplate {
   name           String
   templateType   TemplateType @default(PARTICIPATION)
   backgroundUrl  String?
+  templatePdfUrl String?
+  nameXPercent   Float        @default(50)
+  nameYPercent   Float        @default(42)
+  nameFontSize   Float        @default(36)
+  nameColor      String       @default("#1d4ed8")
+  designJson     Json?
   titleText      String       @default("Certificate of Participation")
   subtitleText   String?      @default("This is to certify that")
   bodyText       String?      @default("has successfully participated in")

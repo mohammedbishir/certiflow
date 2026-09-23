@@ -71,8 +71,8 @@ export default function TemplatesPage() {
 
   return (
     <AppShell
-      title="Templates"
-      subtitle="Choose certificate layouts for your events."
+      title="Certificate templates"
+      subtitle="Design certificates with the visual editor — Canva-style canvas."
       actions={
         <>
           <Link
@@ -89,34 +89,37 @@ export default function TemplatesPage() {
             Add defaults
           </button>
           <Link
-            href="/templates/new"
+            href="/templates/designer"
             className="inline-flex h-10 items-center rounded-full bg-accent px-4 text-sm font-medium text-accent-foreground transition hover:opacity-90"
           >
-            New template
+            Open designer
           </Link>
         </>
       }
     >
       {templates.length === 0 ? (
         <div className="rounded-2xl border border-dashed border-border bg-surface px-6 py-16 text-center shadow-[var(--shadow)]">
-          <p className="text-lg font-semibold text-foreground">No templates yet</p>
+          <p className="text-lg font-semibold text-foreground">
+            Design your first certificate
+          </p>
           <p className="mt-2 text-sm text-muted">
-            Add the 3 default certificate styles, or create your own.
+            Start from the white &amp; gold elegant layout, drag text and seals,
+            then preview the PDF.
           </p>
           <div className="mt-6 flex flex-wrap justify-center gap-3">
+            <Link
+              href="/templates/designer"
+              className="rounded-full bg-accent px-5 py-2.5 text-sm font-medium text-accent-foreground"
+            >
+              Open designer
+            </Link>
             <button
               type="button"
               onClick={onSeedDefaults}
-              className="rounded-full bg-accent px-5 py-2.5 text-sm font-medium text-accent-foreground"
+              className="rounded-full border border-border px-5 py-2.5 text-sm font-medium text-foreground"
             >
               Add default templates
             </button>
-            <Link
-              href="/templates/new"
-              className="rounded-full border border-border px-5 py-2.5 text-sm font-medium text-foreground"
-            >
-              Create custom
-            </Link>
           </div>
         </div>
       ) : (
@@ -158,10 +161,10 @@ export default function TemplatesPage() {
                 </div>
                 <div className="mt-4 flex flex-wrap gap-2">
                   <Link
-                    href={`/templates/${template.id}`}
+                    href={`/templates/designer?id=${template.id}`}
                     className="rounded-full border border-border px-3.5 py-2 text-sm font-medium text-foreground hover:bg-surface-muted"
                   >
-                    Edit
+                    Open designer
                   </Link>
                   <button
                     type="button"
@@ -171,6 +174,11 @@ export default function TemplatesPage() {
                     Delete
                   </button>
                 </div>
+                {template.designJson ? (
+                  <p className="mt-3 text-xs text-accent">Visual design saved</p>
+                ) : template.templatePdfUrl ? (
+                  <p className="mt-3 text-xs text-accent">Designer PDF attached</p>
+                ) : null}
               </div>
             </article>
           ))}
