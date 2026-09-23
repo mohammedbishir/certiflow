@@ -7,9 +7,134 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// Domain models will be added in Module 01 (Auth / Organization).
-// This placeholder verifies Prisma can connect and migrate.
-model HealthCheck {
-  id        String   @id @default(cuid())
-  createdAt DateTime @default(now())
+enum UserRole {
+  ADMIN
+  STAFF
 }
+
+enum EventStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum TemplateType {
+  PARTICIPATION
+  COMPLETION
+  ACHIEVEMENT
+}
+
+enum CertificateStatus {
+  VALID
+  REVOKED
+}
+
+model Organization {
+  id                   String   @id @default(cuid())
+  name                 String
+  email                String   @unique
+  phone                String?
+  logo                 String?
+  website              String?
+  signatoryName        String?
+  signatoryDesignation String?
+  signatureUrl         String?
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  users     User[]
+  events    Event[]
+  templates CertificateTemplate[]
+}
+
+model User {
+  id             String   @id @default(cuid())
+  organizationId String
+  name           String
+  email          String   @unique
+  password       String
+  role           UserRole @default(ADMIN)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+}
+
+model CertificateTemplate {
+  id             String       @id @default(cuid())
+  organizationId String
+  name           String
+  templateType   TemplateType @default(PARTICIPATION)
+  backgroundUrl  String?
+  titleText      String       @default("Certificate of Participation")
+  subtitleText   String?      @default("This is to certify that")
+  bodyText       String?      @default("has successfully participated in")
+  isActive       Boolean      @default(true)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  events       Event[]
+
+  @@index([organizationId])
+}
+
+model Event {
+  id                String      @id @default(cuid())
+  organizationId    String
+  templateId        String?
+  name              String
+  description       String?
+  date              DateTime
+  location          String?
+  registrationToken String      @unique
+  status            EventStatus @default(ACTIVE)
+  createdAt         DateTime    @default(now())
+  updatedAt         DateTime    @updatedAt
+
+  organization Organization         @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  template     CertificateTemplate? @relation(fields: [templateId], references: [id], onDelete: SetNull)
+  participants Participant[]
+  certificates Certificate[]
+
+  @@index([organizationId])
+  @@index([templateId])
+  @@index([status])
+}
+
+model Participant {
+  id        String   @id @default(cuid())
+  eventId   String
+  fullName  String
+  email     String
+  phone     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  event       Event        @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  certificate Certificate?
+
+  @@unique([eventId, email])
+  @@index([eventId])
+}
+
+model Certificate {
+  id                 String            @id @default(cuid())
+  certificateNumber  String            @unique
+  eventId            String
+  participantId      String            @unique
+  verificationToken  String            @unique
+  pdfPath            String
+  status             CertificateStatus @default(VALID)
+  issuedAt           DateTime          @default(now())
+  createdAt          DateTime          @default(now())
+  updatedAt          DateTime          @updatedAt
+
+  event       Event       @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  participant Participant @relation(fields: [participantId], references: [id], onDelete: Cascade)
+
+  @@index([eventId])
+  @@index([verificationToken])
+}
+

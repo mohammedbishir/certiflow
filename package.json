@@ -2,7 +2,7 @@
   "name": "certiflow",
   "private": true,
   "version": "0.0.0",
-  "description": "Digital certificate generation, email delivery, and QR-based verification platform.",
+  "description": "Digital certificate generation, download, and QR-based verification platform.",
   "scripts": {
     "dev": "pnpm -r --parallel run dev",
     "dev:web": "pnpm --filter web dev",
