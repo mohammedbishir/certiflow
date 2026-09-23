@@ -1,6 +1,5 @@
 import { getAccessToken } from "@/lib/auth";
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
+import { getApiBase } from "@/lib/api";
 
 export type EventStatus = "ACTIVE" | "INACTIVE";
 
@@ -45,6 +44,23 @@ export type EventInput = {
   templateId?: string | null;
 };
 
+export type ImportParticipantsResult = {
+  message: string;
+  summary: {
+    created: number;
+    skipped: number;
+    failed: number;
+    total: number;
+  };
+  results: Array<{
+    row: number;
+    email: string;
+    status: "created" | "skipped" | "failed";
+    message: string;
+    certificateNumber?: string;
+  }>;
+};
+
 function authHeaders() {
   const token = getAccessToken();
   if (!token) throw new Error("Not authenticated");
@@ -69,21 +85,21 @@ async function parseResponse(response: Response) {
 }
 
 export async function listEvents(): Promise<EventItem[]> {
-  const response = await fetch(`${API_URL}/events`, {
+  const response = await fetch(`${getApiBase()}/events`, {
     headers: authHeaders(),
   });
   return (await parseResponse(response)) as EventItem[];
 }
 
 export async function getEvent(id: string): Promise<EventItem> {
-  const response = await fetch(`${API_URL}/events/${id}`, {
+  const response = await fetch(`${getApiBase()}/events/${id}`, {
     headers: authHeaders(),
   });
   return (await parseResponse(response)) as EventItem;
 }
 
 export async function createEvent(input: EventInput) {
-  const response = await fetch(`${API_URL}/events`, {
+  const response = await fetch(`${getApiBase()}/events`, {
     method: "POST",
     headers: authHeaders(),
     body: JSON.stringify(input),
@@ -95,7 +111,7 @@ export async function createEvent(input: EventInput) {
 }
 
 export async function updateEvent(id: string, input: Partial<EventInput>) {
-  const response = await fetch(`${API_URL}/events/${id}`, {
+  const response = await fetch(`${getApiBase()}/events/${id}`, {
     method: "PATCH",
     headers: authHeaders(),
     body: JSON.stringify(input),
@@ -107,7 +123,7 @@ export async function updateEvent(id: string, input: Partial<EventInput>) {
 }
 
 export async function deleteEvent(id: string) {
-  const response = await fetch(`${API_URL}/events/${id}`, {
+  const response = await fetch(`${getApiBase()}/events/${id}`, {
     method: "DELETE",
     headers: authHeaders(),
   });
@@ -115,7 +131,7 @@ export async function deleteEvent(id: string) {
 }
 
 export async function activateEvent(id: string) {
-  const response = await fetch(`${API_URL}/events/${id}/activate`, {
+  const response = await fetch(`${getApiBase()}/events/${id}/activate`, {
     method: "PATCH",
     headers: authHeaders(),
   });
@@ -126,7 +142,7 @@ export async function activateEvent(id: string) {
 }
 
 export async function deactivateEvent(id: string) {
-  const response = await fetch(`${API_URL}/events/${id}/deactivate`, {
+  const response = await fetch(`${getApiBase()}/events/${id}/deactivate`, {
     method: "PATCH",
     headers: authHeaders(),
   });
@@ -136,11 +152,31 @@ export async function deactivateEvent(id: string) {
   };
 }
 
-export async function listParticipants(eventId: string): Promise<ParticipantItem[]> {
-  const response = await fetch(`${API_URL}/events/${eventId}/participants`, {
-    headers: authHeaders(),
-  });
+export async function listParticipants(
+  eventId: string,
+): Promise<ParticipantItem[]> {
+  const response = await fetch(
+    `${getApiBase()}/events/${eventId}/participants`,
+    {
+      headers: authHeaders(),
+    },
+  );
   return (await parseResponse(response)) as ParticipantItem[];
+}
+
+export async function importParticipantsCsv(
+  eventId: string,
+  csv: string,
+): Promise<ImportParticipantsResult> {
+  const response = await fetch(
+    `${getApiBase()}/events/${eventId}/participants/import`,
+    {
+      method: "POST",
+      headers: authHeaders(),
+      body: JSON.stringify({ csv }),
+    },
+  );
+  return (await parseResponse(response)) as ImportParticipantsResult;
 }
 
 export function registrationPath(token: string) {

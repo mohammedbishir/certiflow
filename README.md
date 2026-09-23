@@ -61,6 +61,8 @@ pnpm dev
 | PATCH | `/organizations/me` | Bearer + ADMIN |
 | GET | `/events` | Bearer |
 | POST | `/events` | Bearer + ADMIN |
+| GET | `/events/:id/participants` | Bearer |
+| POST | `/events/:id/participants/import` | Bearer + ADMIN |
 | GET | `/events/:id` | Bearer |
 | PATCH | `/events/:id` | Bearer + ADMIN |
 | PATCH | `/events/:id/activate` | Bearer + ADMIN |

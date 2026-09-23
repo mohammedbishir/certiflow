@@ -15,10 +15,12 @@ import {
 } from "@/lib/certificates";
 import {
   getEvent,
+  importParticipantsCsv,
   listParticipants,
   registrationPath,
   updateEvent,
   type EventItem,
+  type ImportParticipantsResult,
   type ParticipantItem,
 } from "@/lib/events";
 import {
@@ -42,6 +44,9 @@ export default function EditEventPage() {
   const [participants, setParticipants] = useState<ParticipantItem[]>([]);
   const [certificates, setCertificates] = useState<CertificateItem[]>([]);
   const [statusUpdatingId, setStatusUpdatingId] = useState<string | null>(null);
+  const [importing, setImporting] = useState(false);
+  const [importResult, setImportResult] =
+    useState<ImportParticipantsResult | null>(null);
   const [templates, setTemplates] = useState<CertificateTemplate[]>([]);
   const [form, setForm] = useState({
     name: "",
@@ -137,6 +142,29 @@ export default function EditEventPage() {
       toast.error(err instanceof Error ? err.message : "Update failed");
     } finally {
       setStatusUpdatingId(null);
+    }
+  }
+
+  async function onCsvSelected(file: File | null) {
+    if (!file) return;
+    setImporting(true);
+    setImportResult(null);
+
+    try {
+      const csv = await file.text();
+      const result = await importParticipantsCsv(params.id, csv);
+      setImportResult(result);
+      toast.success(result.message);
+      const [eventParticipants, eventCertificates] = await Promise.all([
+        listParticipants(params.id),
+        listCertificates(params.id),
+      ]);
+      setParticipants(eventParticipants);
+      setCertificates(eventCertificates);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "CSV import failed");
+    } finally {
+      setImporting(false);
     }
   }
 
@@ -300,6 +328,60 @@ export default function EditEventPage() {
                 </a>
               ) : null}
             </div>
+          </div>
+
+          <div className="rounded-2xl border border-border bg-surface p-6 shadow-[var(--shadow)]">
+            <p className="text-sm font-medium text-accent">Bulk import</p>
+            <h2 className="mt-1 text-lg font-semibold text-foreground">
+              CSV participants
+            </h2>
+            <p className="mt-2 text-sm text-muted">
+              Upload a CSV with columns{" "}
+              <code className="text-foreground">fullName,email,phone</code>.
+              Certificates are issued automatically.
+            </p>
+            <label className="mt-4 inline-flex cursor-pointer rounded-full border border-border px-4 py-2 text-sm font-medium text-foreground hover:bg-surface-muted">
+              {importing ? "Importing..." : "Choose CSV file"}
+              <input
+                type="file"
+                accept=".csv,text/csv"
+                disabled={importing}
+                className="hidden"
+                onChange={(e) => {
+                  const file = e.target.files?.[0] ?? null;
+                  void onCsvSelected(file);
+                  e.target.value = "";
+                }}
+              />
+            </label>
+            <a
+              href={`data:text/csv;charset=utf-8,${encodeURIComponent(
+                "fullName,email,phone\nJane Doe,jane@example.com,+91 98765 43210\n",
+              )}`}
+              download="participants-sample.csv"
+              className="ml-2 inline-flex text-sm font-medium text-accent hover:underline"
+            >
+              Sample CSV
+            </a>
+            {importResult ? (
+              <div className="mt-4 rounded-xl border border-border bg-background px-3 py-3 text-sm">
+                <p className="font-medium text-foreground">
+                  {importResult.summary.created} created ·{" "}
+                  {importResult.summary.skipped} skipped ·{" "}
+                  {importResult.summary.failed} failed
+                </p>
+                <ul className="mt-2 max-h-40 space-y-1 overflow-auto text-xs text-muted">
+                  {importResult.results.slice(0, 20).map((row) => (
+                    <li key={`${row.row}-${row.email}`}>
+                      Row {row.row}: {row.email} — {row.status}
+                      {row.certificateNumber
+                        ? ` (${row.certificateNumber})`
+                        : ""}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
           </div>
 
           <div className="rounded-2xl border border-border bg-surface p-6 shadow-[var(--shadow)]">

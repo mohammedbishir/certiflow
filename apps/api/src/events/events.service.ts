@@ -5,6 +5,7 @@ import {
 } from '@nestjs/common';
 import { EventStatus } from '@prisma/client';
 import { randomBytes } from 'crypto';
+import { CertificatesService } from '../certificates/certificates.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { CreateEventDto } from './dto/create-event.dto.js';
 import { UpdateEventDto } from './dto/update-event.dto.js';
@@ -39,7 +40,10 @@ const eventSelect = {
 
 @Injectable()
 export class EventsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly certificatesService: CertificatesService,
+  ) {}
 
   async findAll(organizationId: string) {
     return this.prisma.event.findMany({
@@ -157,6 +161,202 @@ export class EventsService {
       },
       orderBy: { createdAt: 'desc' },
     });
+  }
+
+  async importParticipantsCsv(
+    organizationId: string,
+    eventId: string,
+    csv: string,
+  ) {
+    await this.findOne(organizationId, eventId);
+
+    const rows = this.parseParticipantCsv(csv);
+    if (rows.length === 0) {
+      throw new BadRequestException(
+        'CSV has no valid rows. Expected headers: fullName,email,phone',
+      );
+    }
+
+    if (rows.length > 500) {
+      throw new BadRequestException('CSV import is limited to 500 rows');
+    }
+
+    const results: Array<{
+      row: number;
+      email: string;
+      status: 'created' | 'skipped' | 'failed';
+      message: string;
+      certificateNumber?: string;
+    }> = [];
+
+    let created = 0;
+    let skipped = 0;
+    let failed = 0;
+
+    for (const row of rows) {
+      try {
+        const email = row.email.toLowerCase();
+        const existing = await this.prisma.participant.findUnique({
+          where: {
+            eventId_email: {
+              eventId,
+              email,
+            },
+          },
+          include: {
+            certificate: {
+              select: { certificateNumber: true },
+            },
+          },
+        });
+
+        if (existing) {
+          skipped += 1;
+          results.push({
+            row: row.row,
+            email,
+            status: 'skipped',
+            message: 'Already registered for this event',
+            certificateNumber: existing.certificate?.certificateNumber,
+          });
+          continue;
+        }
+
+        const participant = await this.prisma.participant.create({
+          data: {
+            eventId,
+            fullName: row.fullName,
+            email,
+            phone: row.phone || null,
+          },
+        });
+
+        const certificate =
+          await this.certificatesService.issueForParticipant(participant.id);
+
+        created += 1;
+        results.push({
+          row: row.row,
+          email,
+          status: 'created',
+          message: 'Participant added and certificate issued',
+          certificateNumber: certificate.certificateNumber,
+        });
+      } catch (error) {
+        failed += 1;
+        results.push({
+          row: row.row,
+          email: row.email,
+          status: 'failed',
+          message:
+            error instanceof Error ? error.message : 'Failed to import row',
+        });
+      }
+    }
+
+    return {
+      message: `Import finished: ${created} created, ${skipped} skipped, ${failed} failed`,
+      summary: { created, skipped, failed, total: rows.length },
+      results,
+    };
+  }
+
+  private parseParticipantCsv(csv: string) {
+    const lines = csv
+      .replace(/^\uFEFF/, '')
+      .split(/\r?\n/)
+      .map((line) => line.trim())
+      .filter((line) => line.length > 0);
+
+    if (lines.length < 2) {
+      return [];
+    }
+
+    const headers = this.splitCsvLine(lines[0]).map((header) =>
+      header.trim().toLowerCase().replace(/[\s_-]+/g, ''),
+    );
+
+    const fullNameIndex = headers.findIndex((header) =>
+      ['fullname', 'name', 'participantname'].includes(header),
+    );
+    const emailIndex = headers.findIndex((header) => header === 'email');
+    const phoneIndex = headers.findIndex((header) =>
+      ['phone', 'mobile', 'phonenumber'].includes(header),
+    );
+
+    if (fullNameIndex < 0 || emailIndex < 0) {
+      throw new BadRequestException(
+        'CSV must include fullName (or name) and email columns',
+      );
+    }
+
+    const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    const rows: Array<{
+      row: number;
+      fullName: string;
+      email: string;
+      phone?: string;
+    }> = [];
+
+    for (let i = 1; i < lines.length; i += 1) {
+      const cells = this.splitCsvLine(lines[i]);
+      const fullName = (cells[fullNameIndex] ?? '').trim();
+      const email = (cells[emailIndex] ?? '').trim();
+      const phone =
+        phoneIndex >= 0 ? (cells[phoneIndex] ?? '').trim() : undefined;
+
+      if (!fullName && !email) {
+        continue;
+      }
+
+      if (fullName.length < 2 || !emailPattern.test(email)) {
+        throw new BadRequestException(
+          `Invalid data on CSV row ${i + 1}. Need a valid name and email.`,
+        );
+      }
+
+      rows.push({
+        row: i + 1,
+        fullName,
+        email,
+        phone: phone || undefined,
+      });
+    }
+
+    return rows;
+  }
+
+  private splitCsvLine(line: string) {
+    const cells: string[] = [];
+    let current = '';
+    let inQuotes = false;
+
+    for (let i = 0; i < line.length; i += 1) {
+      const char = line[i];
+      const next = line[i + 1];
+
+      if (char === '"' && inQuotes && next === '"') {
+        current += '"';
+        i += 1;
+        continue;
+      }
+
+      if (char === '"') {
+        inQuotes = !inQuotes;
+        continue;
+      }
+
+      if (char === ',' && !inQuotes) {
+        cells.push(current);
+        current = '';
+        continue;
+      }
+
+      current += char;
+    }
+
+    cells.push(current);
+    return cells;
   }
 
   private async assertTemplate(organizationId: string, templateId: string) {

@@ -15,6 +15,7 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard.js';
 import { RolesGuard } from '../auth/guards/roles.guard.js';
 import type { AuthUser } from '../auth/types/auth-user.type.js';
 import { CreateEventDto } from './dto/create-event.dto.js';
+import { ImportParticipantsDto } from './dto/import-participants.dto.js';
 import { UpdateEventDto } from './dto/update-event.dto.js';
 import { EventsService } from './events.service.js';
 
@@ -31,6 +32,20 @@ export class EventsController {
   @Get(':id/participants')
   listParticipants(@CurrentUser() user: AuthUser, @Param('id') id: string) {
     return this.eventsService.listParticipants(user.organizationId, id);
+  }
+
+  @Post(':id/participants/import')
+  @Roles(UserRole.ADMIN)
+  importParticipants(
+    @CurrentUser() user: AuthUser,
+    @Param('id') id: string,
+    @Body() dto: ImportParticipantsDto,
+  ) {
+    return this.eventsService.importParticipantsCsv(
+      user.organizationId,
+      id,
+      dto.csv,
+    );
   }
 
   @Get(':id')
