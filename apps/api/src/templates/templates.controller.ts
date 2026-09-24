@@ -47,6 +47,24 @@ export class TemplatesController {
     return this.templatesService.ensureDefaults(user.organizationId);
   }
 
+  @Post('design-assets')
+  @Roles(UserRole.ADMIN)
+  @UseInterceptors(
+    FileInterceptor('file', {
+      storage: memoryStorage(),
+      limits: { fileSize: 5 * 1024 * 1024 },
+    }),
+  )
+  uploadDesignAsset(
+    @CurrentUser() user: AuthUser,
+    @UploadedFile() file: Express.Multer.File,
+  ) {
+    return this.templatesService.uploadDesignAsset(
+      user.organizationId,
+      file,
+    );
+  }
+
   @Get(':id')
   findOne(@CurrentUser() user: AuthUser, @Param('id') id: string) {
     return this.templatesService.findOne(user.organizationId, id);

@@ -145,7 +145,7 @@ export function TemplateCanvasEditor({
           Upload a designer PDF to open the visual editor
         </p>
         <p className="mt-2 text-sm text-muted">
-          Like Canva: drag the name onto the exact spot on your certificate.
+          Drag the name onto the exact spot on your certificate.
         </p>
       </div>
     );

@@ -2,20 +2,28 @@
 
 import { FormEvent, useEffect, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { toast } from "react-toastify";
 import { AppShell } from "@/components/app-shell";
 import { useConfirm } from "@/components/confirm-modal";
-import { createEvent } from "@/lib/events";
+import { getAccessToken } from "@/lib/auth";
+import { getEvent, updateEvent } from "@/lib/events";
 import {
   listActiveTemplates,
-  seedDefaultTemplates,
   type CertificateTemplate,
 } from "@/lib/templates";
 
-export default function NewEventPage() {
+function toLocalInputValue(iso: string) {
+  const date = new Date(iso);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+}
+
+export default function EditEventPage() {
   const router = useRouter();
+  const params = useParams<{ id: string }>();
   const { confirm, confirmDialog } = useConfirm();
+  const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [templates, setTemplates] = useState<CertificateTemplate[]>([]);
   const [form, setForm] = useState({
@@ -23,27 +31,38 @@ export default function NewEventPage() {
     description: "",
     date: "",
     location: "",
-    status: "INACTIVE" as "ACTIVE" | "INACTIVE",
+    status: "ACTIVE" as "ACTIVE" | "INACTIVE",
     templateId: "",
   });
 
   useEffect(() => {
-    listActiveTemplates()
-      .then(async (data) => {
-        if (data.length === 0) {
-          const seeded = await seedDefaultTemplates();
-          setTemplates(seeded.filter((item) => item.isActive));
-          return;
-        }
-        setTemplates(data);
+    const token = getAccessToken();
+    if (!token) {
+      router.replace("/login");
+      return;
+    }
+
+    Promise.all([getEvent(params.id), listActiveTemplates()])
+      .then(([data, activeTemplates]) => {
+        setForm({
+          name: data.name,
+          description: data.description ?? "",
+          date: toLocalInputValue(data.date),
+          location: data.location ?? "",
+          status: data.status,
+          templateId: data.templateId ?? "",
+        });
+        setTemplates(activeTemplates);
       })
       .catch(() => {
-        // Templates are optional at create time.
-      });
-  }, []);
+        toast.error("Event not found");
+        router.replace("/events");
+      })
+      .finally(() => setLoading(false));
+  }, [params.id, router]);
 
-  async function onSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
+  async function onSubmit(submitEvent: FormEvent<HTMLFormElement>) {
+    submitEvent.preventDefault();
 
     if (form.status === "ACTIVE" && !form.templateId) {
       toast.error("Select a certificate template before activating");
@@ -51,49 +70,64 @@ export default function NewEventPage() {
     }
 
     const ok = await confirm({
-      title: "Create this event?",
-      message: `Create “${form.name.trim()}”${form.status === "ACTIVE" ? " and open registration" : " as inactive"}?`,
-      confirmLabel: "Yes, create",
+      title: "Save event changes?",
+      message: "Update this event’s details, template, and status?",
+      confirmLabel: "Yes, save",
       cancelLabel: "No",
     });
     if (!ok) return;
 
     setSaving(true);
-
     try {
-      const result = await createEvent({
+      const result = await updateEvent(params.id, {
         name: form.name.trim(),
         description: form.description.trim() || undefined,
         date: new Date(form.date).toISOString(),
         location: form.location.trim() || undefined,
         status: form.status,
-        templateId: form.templateId || undefined,
+        templateId: form.templateId || null,
       });
       toast.success(result.message);
-      router.push(`/events/${result.event.id}`);
+      router.push(`/events/${params.id}`);
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Create failed");
+      toast.error(err instanceof Error ? err.message : "Update failed");
     } finally {
       setSaving(false);
     }
   }
 
+  if (loading) {
+    return (
+      <div className="page-shell flex flex-1 items-center justify-center px-6">
+        <p className="text-muted">Loading event...</p>
+      </div>
+    );
+  }
+
   return (
     <AppShell
-      title="New event"
-      subtitle="Create a workshop or seminar and generate a registration link."
+      title="Edit event"
+      subtitle="Update name, schedule, template, and status."
       actions={
-        <Link
-          href="/events"
-          className="inline-flex h-10 items-center rounded-full border border-border bg-surface px-4 text-sm font-medium text-foreground transition hover:bg-surface-muted"
-        >
-          Back
-        </Link>
+        <>
+          <Link
+            href={`/events/${params.id}`}
+            className="inline-flex h-10 items-center rounded-full border border-border bg-surface px-4 text-sm font-medium text-foreground transition hover:bg-surface-muted"
+          >
+            Event details
+          </Link>
+          <Link
+            href="/events"
+            className="inline-flex h-10 items-center rounded-full border border-border bg-surface px-4 text-sm font-medium text-foreground transition hover:bg-surface-muted"
+          >
+            All events
+          </Link>
+        </>
       }
     >
       <form
         onSubmit={onSubmit}
-        className="max-w-2xl space-y-4 rounded-2xl border border-border bg-surface p-6 shadow-[var(--shadow)] md:p-8"
+        className="mx-auto max-w-2xl space-y-4 rounded-2xl border border-border bg-surface p-6 shadow-[var(--shadow)] md:p-8"
       >
         <label className="block">
           <span className="mb-1.5 block text-sm font-medium text-foreground">
@@ -102,9 +136,10 @@ export default function NewEventPage() {
           <input
             required
             value={form.name}
-            onChange={(e) => setForm((prev) => ({ ...prev, name: e.target.value }))}
+            onChange={(e) =>
+              setForm((prev) => ({ ...prev, name: e.target.value }))
+            }
             className="w-full rounded-xl border border-border bg-background px-3.5 py-2.5 text-foreground outline-none ring-accent focus:ring-2"
-            placeholder="AI & Web Development Workshop"
           />
         </label>
 
@@ -119,7 +154,6 @@ export default function NewEventPage() {
             }
             rows={4}
             className="w-full rounded-xl border border-border bg-background px-3.5 py-2.5 text-foreground outline-none ring-accent focus:ring-2"
-            placeholder="One-day hands-on workshop..."
           />
         </label>
 
@@ -149,7 +183,6 @@ export default function NewEventPage() {
                 setForm((prev) => ({ ...prev, location: e.target.value }))
               }
               className="w-full rounded-xl border border-border bg-background px-3.5 py-2.5 text-foreground outline-none ring-accent focus:ring-2"
-              placeholder="Kochi"
             />
           </label>
         </div>
@@ -221,10 +254,10 @@ export default function NewEventPage() {
             disabled={saving}
             className="rounded-full bg-accent px-5 py-2.5 text-sm font-medium text-accent-foreground transition hover:opacity-90 disabled:opacity-60"
           >
-            {saving ? "Creating..." : "Create event"}
+            {saving ? "Saving..." : "Save changes"}
           </button>
           <Link
-            href="/events"
+            href={`/events/${params.id}`}
             className="rounded-full border border-border px-5 py-2.5 text-sm font-medium text-foreground hover:bg-surface-muted"
           >
             Cancel

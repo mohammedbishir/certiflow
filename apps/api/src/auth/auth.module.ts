@@ -15,11 +15,11 @@ import { JwtStrategy } from './strategies/jwt.strategy.js';
       imports: [ConfigModule],
       inject: [ConfigService],
       useFactory: (config: ConfigService) => {
-        const expiresIn = config.get<string>('JWT_ACCESS_EXPIRES_IN') ?? '15m';
+        const expiresIn = config.get<string>('JWT_ACCESS_EXPIRES_IN') ?? '24h';
         return {
           secret: config.getOrThrow<string>('JWT_ACCESS_SECRET'),
           signOptions: {
-            expiresIn: expiresIn as `${number}m` | `${number}d` | `${number}s`,
+            expiresIn: expiresIn as `${number}m` | `${number}h` | `${number}d` | `${number}s`,
           },
         };
       },

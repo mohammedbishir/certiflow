@@ -104,3 +104,59 @@ export async function updateOrganization(input: UpdateOrganizationInput) {
     organization: Organization;
   };
 }
+
+function authHeadersMultipart() {
+  const token = getAccessToken();
+  if (!token) throw new Error("Not authenticated");
+  return { Authorization: `Bearer ${token}` };
+}
+
+export async function uploadOrganizationLogo(file: File) {
+  const body = new FormData();
+  body.append("file", file);
+  const response = await fetch(`${getApiBase()}/organizations/me/logo`, {
+    method: "POST",
+    headers: authHeadersMultipart(),
+    body,
+  });
+  return (await parseResponse(response)) as {
+    message: string;
+    organization: Organization;
+  };
+}
+
+export async function clearOrganizationLogo() {
+  const response = await fetch(`${getApiBase()}/organizations/me/logo`, {
+    method: "DELETE",
+    headers: authHeaders(),
+  });
+  return (await parseResponse(response)) as {
+    message: string;
+    organization: Organization;
+  };
+}
+
+export async function uploadOrganizationSignature(file: File) {
+  const body = new FormData();
+  body.append("file", file);
+  const response = await fetch(`${getApiBase()}/organizations/me/signature`, {
+    method: "POST",
+    headers: authHeadersMultipart(),
+    body,
+  });
+  return (await parseResponse(response)) as {
+    message: string;
+    organization: Organization;
+  };
+}
+
+export async function clearOrganizationSignature() {
+  const response = await fetch(`${getApiBase()}/organizations/me/signature`, {
+    method: "DELETE",
+    headers: authHeaders(),
+  });
+  return (await parseResponse(response)) as {
+    message: string;
+    organization: Organization;
+  };
+}

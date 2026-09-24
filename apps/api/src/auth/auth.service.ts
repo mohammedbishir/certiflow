@@ -178,7 +178,7 @@ export class AuthService {
       type: 'refresh',
     };
 
-    const accessExpiresIn = this.config.get<string>('JWT_ACCESS_EXPIRES_IN') ?? '15m';
+    const accessExpiresIn = this.config.get<string>('JWT_ACCESS_EXPIRES_IN') ?? '24h';
     const refreshExpiresIn =
       this.config.get<string>('JWT_REFRESH_EXPIRES_IN') ?? '7d';
 
@@ -186,7 +186,7 @@ export class AuthService {
       { ...accessPayload },
       {
         secret: this.config.getOrThrow<string>('JWT_ACCESS_SECRET'),
-        expiresIn: accessExpiresIn as `${number}m` | `${number}d` | `${number}s`,
+        expiresIn: accessExpiresIn as `${number}m` | `${number}h` | `${number}d` | `${number}s`,
       },
     );
 
@@ -194,7 +194,7 @@ export class AuthService {
       { ...refreshPayload },
       {
         secret: this.config.getOrThrow<string>('JWT_REFRESH_SECRET'),
-        expiresIn: refreshExpiresIn as `${number}m` | `${number}d` | `${number}s`,
+        expiresIn: refreshExpiresIn as `${number}m` | `${number}h` | `${number}d` | `${number}s`,
       },
     );
 

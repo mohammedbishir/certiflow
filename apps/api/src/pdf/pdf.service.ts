@@ -20,7 +20,7 @@ type DesignRole =
 
 type DesignElement = {
   id: string;
-  type: 'text' | 'rect' | 'line' | 'ellipse' | 'icon' | 'path';
+  type: 'text' | 'rect' | 'line' | 'ellipse' | 'icon' | 'path' | 'image';
   x: number;
   y: number;
   width?: number;
@@ -39,6 +39,7 @@ type DesignElement = {
   opacity?: number;
   iconId?: string;
   path?: string;
+  src?: string;
   locked?: boolean;
 };
 
@@ -251,6 +252,62 @@ export class PdfService {
     doc.circle(x + w / 2, y + h / 2, Math.min(w, h) / 2).fill('#d4af37');
   }
 
+  private async prepareDesignImage(
+    src: string,
+    width: number,
+    height: number,
+  ): Promise<Buffer | string | null> {
+    if (src.startsWith('http://') || src.startsWith('https://')) {
+      try {
+        const response = await fetch(src);
+        if (!response.ok) return null;
+        const arrayBuffer = await response.arrayBuffer();
+        const input = Buffer.from(arrayBuffer);
+        const contentType = response.headers.get('content-type') ?? '';
+        if (
+          contentType.includes('svg') ||
+          src.toLowerCase().endsWith('.svg')
+        ) {
+          const sharp = (await import('sharp')).default;
+          return await sharp(input)
+            .resize(
+              Math.max(1, Math.round(width * 2)),
+              Math.max(1, Math.round(height * 2)),
+              {
+                fit: 'contain',
+                background: { r: 0, g: 0, b: 0, alpha: 0 },
+              },
+            )
+            .png()
+            .toBuffer();
+        }
+        return input;
+      } catch {
+        return null;
+      }
+    }
+
+    const imagePath = this.resolveUploadPath(src);
+    if (!imagePath) return null;
+
+    if (imagePath.toLowerCase().endsWith('.svg')) {
+      try {
+        const sharp = (await import('sharp')).default;
+        return await sharp(imagePath)
+          .resize(Math.max(1, Math.round(width * 2)), Math.max(1, Math.round(height * 2)), {
+            fit: 'contain',
+            background: { r: 0, g: 0, b: 0, alpha: 0 },
+          })
+          .png()
+          .toBuffer();
+      } catch {
+        return null;
+      }
+    }
+
+    return imagePath;
+  }
+
   private async generateFromDesignJson(
     input: CertificatePdfInput,
     design: CertificateDesign,
@@ -267,6 +324,20 @@ export class PdfService {
       qrDataUrl.replace(/^data:image\/png;base64,/, ''),
       'base64',
     );
+
+    const imageSources = new Map<string, Buffer | string>();
+    for (const el of design.elements) {
+      if (el.type === 'image' && el.src) {
+        const prepared = await this.prepareDesignImage(
+          el.src,
+          el.width ?? 120,
+          el.height ?? 120,
+        );
+        if (prepared) {
+          imageSources.set(el.id, prepared);
+        }
+      }
+    }
 
     await new Promise<void>((resolve, reject) => {
       const doc = new PDFDocumentKit({
@@ -315,35 +386,46 @@ export class PdfService {
           }
         } else if (el.type === 'path' && el.path) {
           try {
+            doc.save();
+            doc.translate(el.x || 0, el.y || 0);
             doc.path(el.path).fill(el.fill ?? '#111111');
+            doc.restore();
           } catch {
             // ignore invalid paths
           }
         } else if (el.type === 'icon') {
           this.drawDesignIcon(doc, el);
+        } else if (el.type === 'image') {
+          const source = imageSources.get(el.id);
+          if (source) {
+            try {
+              doc.image(source, el.x, el.y, {
+                width: el.width ?? 120,
+                height: el.height ?? 120,
+                fit: [el.width ?? 120, el.height ?? 120],
+                align: 'center',
+                valign: 'center',
+              });
+            } catch {
+              // skip broken image
+            }
+          }
         } else if (el.type === 'text') {
           const text = this.resolveRoleText(el, input);
           const fontSize = el.fontSize ?? 16;
           const color = el.color ?? '#111827';
           const align = el.align ?? 'left';
-          const boxWidth =
-            el.width ??
-            (el.fontStyle === 'script' ? 280 : design.width * 0.7);
-          let x = el.x;
-          if (align === 'center') {
-            x = el.x - boxWidth / 2;
-          } else if (align === 'right') {
-            x = el.x - boxWidth;
-          }
+          const boxWidth = el.width ?? design.width * 0.7;
 
           doc
             .font(this.pickFont(el))
             .fillColor(color)
             .fontSize(fontSize)
-            .text(text, x, el.y - fontSize * 0.85, {
+            .text(text, el.x, el.y, {
               width: boxWidth,
               align,
               lineGap: 4,
+              height: el.height,
             });
         }
       }

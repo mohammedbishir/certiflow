@@ -41,9 +41,15 @@ export class CertificatesService {
       throw new NotFoundException('Participant not found');
     }
 
+    const template = participant.event.template;
+    if (!template) {
+      throw new BadRequestException(
+        'Select a certificate template before issuing certificates',
+      );
+    }
+
     const certificateNumber = await this.createCertificateNumber();
     const verificationToken = randomBytes(16).toString('hex');
-    const template = participant.event.template;
 
     const pdfPath = await this.pdfService.generateCertificatePdf({
       certificateNumber,
@@ -56,16 +62,16 @@ export class CertificatesService {
       signatoryName: participant.event.organization.signatoryName,
       signatoryDesignation:
         participant.event.organization.signatoryDesignation,
-      titleText: template?.titleText ?? 'Certificate of Participation',
-      subtitleText: template?.subtitleText ?? 'This is to certify that',
-      bodyText: template?.bodyText ?? 'has successfully participated in',
-      backgroundUrl: template?.backgroundUrl,
-      templatePdfUrl: template?.templatePdfUrl,
-      designJson: template?.designJson,
-      nameXPercent: template?.nameXPercent,
-      nameYPercent: template?.nameYPercent,
-      nameFontSize: template?.nameFontSize,
-      nameColor: template?.nameColor,
+      titleText: template.titleText,
+      subtitleText: template.subtitleText ?? 'This is to certify that',
+      bodyText: template.bodyText ?? 'has successfully participated in',
+      backgroundUrl: template.backgroundUrl,
+      templatePdfUrl: template.templatePdfUrl,
+      designJson: template.designJson,
+      nameXPercent: template.nameXPercent,
+      nameYPercent: template.nameYPercent,
+      nameFontSize: template.nameFontSize,
+      nameColor: template.nameColor,
     });
 
     return this.prisma.certificate.create({

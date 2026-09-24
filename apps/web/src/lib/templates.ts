@@ -88,11 +88,37 @@ export async function listActiveTemplates(): Promise<CertificateTemplate[]> {
 }
 
 export async function seedDefaultTemplates(): Promise<CertificateTemplate[]> {
-  const response = await fetch(`${getApiBase()}/templates/seed-defaults`, {
-    method: "POST",
-    headers: authHeaders(),
-  });
-  return (await parseResponse(response)) as CertificateTemplate[];
+  const existing = await listTemplates();
+  const byName = new Map(existing.map((item) => [item.name, item]));
+
+  const { DEFAULT_TEMPLATE_DEFS } = await import("@/lib/certificate-presets");
+
+  for (const def of DEFAULT_TEMPLATE_DEFS) {
+    const current = byName.get(def.name);
+    const designJson = def.create() as unknown as Record<string, unknown>;
+    const payload = {
+      templateType: def.templateType,
+      titleText: def.titleText,
+      subtitleText: def.subtitleText,
+      bodyText: def.bodyText,
+      nameColor: def.nameColor,
+      designJson,
+      isActive: true,
+    };
+
+    if (current) {
+      // Refresh design so layout/logo fixes apply to existing defaults.
+      await updateTemplate(current.id, payload);
+      continue;
+    }
+
+    await createTemplate({
+      name: def.name,
+      ...payload,
+    });
+  }
+
+  return listTemplates();
 }
 
 export async function getTemplate(id: string): Promise<CertificateTemplate> {
@@ -126,6 +152,21 @@ export async function updateTemplate(
   return (await parseResponse(response)) as {
     message: string;
     template: CertificateTemplate;
+  };
+}
+
+export async function uploadDesignAsset(file: File) {
+  const body = new FormData();
+  body.append("file", file);
+
+  const response = await fetch(`${getApiBase()}/templates/design-assets`, {
+    method: "POST",
+    headers: authHeaders(false),
+    body,
+  });
+  return (await parseResponse(response)) as {
+    message: string;
+    url: string;
   };
 }
 
@@ -185,6 +226,9 @@ export async function previewTemplateCertificate(
   id: string,
   input: {
     sampleName?: string;
+    eventName?: string;
+    eventDate?: string;
+    eventLocation?: string;
     nameXPercent?: number;
     nameYPercent?: number;
     nameFontSize?: number;

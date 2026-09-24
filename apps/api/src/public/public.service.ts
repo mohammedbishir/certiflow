@@ -26,6 +26,7 @@ export class PublicService {
         date: true,
         location: true,
         status: true,
+        templateId: true,
         organization: {
           select: {
             name: true,
@@ -37,6 +38,12 @@ export class PublicService {
 
     if (!event) {
       throw new NotFoundException('Registration link is invalid');
+    }
+
+    if (!event.templateId) {
+      throw new BadRequestException(
+        'Registration is not open yet — a certificate template has not been selected',
+      );
     }
 
     if (event.status !== EventStatus.ACTIVE) {
@@ -61,11 +68,18 @@ export class PublicService {
         id: true,
         name: true,
         status: true,
+        templateId: true,
       },
     });
 
     if (!event) {
       throw new NotFoundException('Registration link is invalid');
+    }
+
+    if (!event.templateId) {
+      throw new BadRequestException(
+        'Registration is not open yet — a certificate template has not been selected',
+      );
     }
 
     if (event.status !== EventStatus.ACTIVE) {

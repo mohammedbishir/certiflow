@@ -1,4 +1,4 @@
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
+import { getApiBase } from "@/lib/api";
 
 export type AuthUser = {
   id: string;
@@ -42,7 +42,7 @@ export async function loginRequest(
   email: string,
   password: string,
 ): Promise<AuthResponse> {
-  const response = await fetch(`${API_URL}/auth/login`, {
+  const response = await fetch(`${getApiBase()}/auth/login`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ email, password }),
@@ -64,7 +64,7 @@ export async function loginRequest(
 }
 
 export async function meRequest(accessToken: string) {
-  const response = await fetch(`${API_URL}/auth/me`, {
+  const response = await fetch(`${getApiBase()}/auth/me`, {
     headers: { Authorization: `Bearer ${accessToken}` },
   });
 
@@ -80,7 +80,7 @@ export async function meRequest(accessToken: string) {
 }
 
 export async function logoutRequest(accessToken: string) {
-  await fetch(`${API_URL}/auth/logout`, {
+  await fetch(`${getApiBase()}/auth/logout`, {
     method: "POST",
     headers: { Authorization: `Bearer ${accessToken}` },
   });

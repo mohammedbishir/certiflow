@@ -1,14 +1,20 @@
 "use client";
 
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "react-toastify";
 import { AppShell } from "@/components/app-shell";
+import { useConfirm } from "@/components/confirm-modal";
 import { getAccessToken } from "@/lib/auth";
+import { getApiBase } from "@/lib/api";
 import {
+  clearOrganizationLogo,
+  clearOrganizationSignature,
   getOrganization,
   updateOrganization,
+  uploadOrganizationLogo,
+  uploadOrganizationSignature,
   type Organization,
 } from "@/lib/organizations";
 
@@ -22,6 +28,12 @@ type FormState = {
   signatoryDesignation: string;
   signatureUrl: string;
 };
+
+function assetUrl(path: string | null | undefined) {
+  if (!path) return null;
+  if (path.startsWith("http://") || path.startsWith("https://")) return path;
+  return `${getApiBase()}${path.startsWith("/") ? path : `/${path}`}`;
+}
 
 function Field({
   label,
@@ -49,8 +61,13 @@ function inputClassName() {
 
 export default function OrganizationSettingsPage() {
   const router = useRouter();
+  const { confirm, confirmDialog } = useConfirm();
+  const logoInputRef = useRef<HTMLInputElement>(null);
+  const signatureInputRef = useRef<HTMLInputElement>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [uploadingLogo, setUploadingLogo] = useState(false);
+  const [uploadingSignature, setUploadingSignature] = useState(false);
   const [form, setForm] = useState<FormState>({
     name: "",
     email: "",
@@ -93,8 +110,100 @@ export default function OrganizationSettingsPage() {
     setForm((prev) => ({ ...prev, [key]: value }));
   }
 
+  function applyOrg(org: Organization) {
+    setForm((prev) => ({
+      ...prev,
+      logo: org.logo ?? "",
+      signatureUrl: org.signatureUrl ?? "",
+      signatoryName: org.signatoryName ?? prev.signatoryName,
+      signatoryDesignation:
+        org.signatoryDesignation ?? prev.signatoryDesignation,
+    }));
+  }
+
+  async function onLogoFile(file: File | null) {
+    if (!file) return;
+    try {
+      setUploadingLogo(true);
+      const result = await uploadOrganizationLogo(file);
+      applyOrg(result.organization);
+      toast.success(result.message);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Logo upload failed");
+    } finally {
+      setUploadingLogo(false);
+      if (logoInputRef.current) logoInputRef.current.value = "";
+    }
+  }
+
+  async function onSignatureFile(file: File | null) {
+    if (!file) return;
+    try {
+      setUploadingSignature(true);
+      const result = await uploadOrganizationSignature(file);
+      applyOrg(result.organization);
+      toast.success(result.message);
+    } catch (err) {
+      toast.error(
+        err instanceof Error ? err.message : "Signature upload failed",
+      );
+    } finally {
+      setUploadingSignature(false);
+      if (signatureInputRef.current) signatureInputRef.current.value = "";
+    }
+  }
+
+  async function onClearLogo() {
+    const ok = await confirm({
+      title: "Remove organization logo?",
+      message: "The logo will be removed from certificates that use organization branding.",
+      confirmLabel: "Yes, remove",
+      cancelLabel: "No",
+      tone: "danger",
+    });
+    if (!ok) return;
+
+    try {
+      const result = await clearOrganizationLogo();
+      applyOrg(result.organization);
+      toast.success(result.message);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to remove logo");
+    }
+  }
+
+  async function onClearSignature() {
+    const ok = await confirm({
+      title: "Remove signature image?",
+      message: "The signature image will be removed from organization branding.",
+      confirmLabel: "Yes, remove",
+      cancelLabel: "No",
+      tone: "danger",
+    });
+    if (!ok) return;
+
+    try {
+      const result = await clearOrganizationSignature();
+      applyOrg(result.organization);
+      toast.success(result.message);
+    } catch (err) {
+      toast.error(
+        err instanceof Error ? err.message : "Failed to remove signature",
+      );
+    }
+  }
+
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+
+    const ok = await confirm({
+      title: "Save organization settings?",
+      message: "Update your organization profile and signatory details?",
+      confirmLabel: "Yes, save",
+      cancelLabel: "No",
+    });
+    if (!ok) return;
+
     setSaving(true);
 
     try {
@@ -102,11 +211,9 @@ export default function OrganizationSettingsPage() {
         name: form.name.trim(),
         email: form.email.trim(),
         phone: form.phone.trim() || undefined,
-        logo: form.logo.trim() || undefined,
         website: form.website.trim() || undefined,
         signatoryName: form.signatoryName.trim() || undefined,
         signatoryDesignation: form.signatoryDesignation.trim() || undefined,
-        signatureUrl: form.signatureUrl.trim() || undefined,
       });
       toast.success(result.message);
     } catch (err) {
@@ -123,6 +230,9 @@ export default function OrganizationSettingsPage() {
       </div>
     );
   }
+
+  const logoPreview = assetUrl(form.logo);
+  const signaturePreview = assetUrl(form.signatureUrl);
 
   return (
     <AppShell
@@ -200,32 +310,100 @@ export default function OrganizationSettingsPage() {
               </h2>
             </div>
 
-            <div className="grid gap-4">
-              <Field
-                label="Logo URL"
-                hint="Paste an image URL for now. File upload comes later."
-              >
+            <div className="grid gap-5">
+              <div>
+                <p className="mb-1.5 text-sm font-medium text-foreground">
+                  Logo
+                </p>
+                <p className="mb-3 text-xs text-muted">
+                  Upload PNG or SVG. Used as the default logo on certificates.
+                </p>
                 <input
-                  type="url"
-                  value={form.logo}
-                  onChange={(e) => updateField("logo", e.target.value)}
-                  className={inputClassName()}
-                  placeholder="https://cdn.example.com/logo.png"
+                  ref={logoInputRef}
+                  type="file"
+                  accept="image/png,image/jpeg,image/webp,image/svg+xml,.svg"
+                  hidden
+                  onChange={(e) => onLogoFile(e.target.files?.[0] ?? null)}
                 />
-              </Field>
+                <div className="flex flex-wrap items-center gap-3">
+                  <div className="flex h-16 w-16 items-center justify-center overflow-hidden rounded-xl border border-border bg-background">
+                    {logoPreview ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={logoPreview}
+                        alt="Logo"
+                        className="h-full w-full object-contain p-1.5"
+                      />
+                    ) : (
+                      <span className="text-xs text-muted">Logo</span>
+                    )}
+                  </div>
+                  <button
+                    type="button"
+                    disabled={uploadingLogo}
+                    onClick={() => logoInputRef.current?.click()}
+                    className="rounded-full bg-accent px-4 py-2 text-sm font-medium text-accent-foreground disabled:opacity-60"
+                  >
+                    {uploadingLogo ? "Uploading..." : "Upload logo"}
+                  </button>
+                  {form.logo ? (
+                    <button
+                      type="button"
+                      onClick={onClearLogo}
+                      className="rounded-full border border-border px-4 py-2 text-sm font-medium text-danger hover:bg-danger-soft"
+                    >
+                      Remove
+                    </button>
+                  ) : null}
+                </div>
+              </div>
 
-              <Field
-                label="Signature image URL"
-                hint="Used as the signatory mark on certificates."
-              >
+              <div>
+                <p className="mb-1.5 text-sm font-medium text-foreground">
+                  Signature image
+                </p>
+                <p className="mb-3 text-xs text-muted">
+                  Upload PNG or SVG. Used as the default signatory mark.
+                </p>
                 <input
-                  type="url"
-                  value={form.signatureUrl}
-                  onChange={(e) => updateField("signatureUrl", e.target.value)}
-                  className={inputClassName()}
-                  placeholder="https://cdn.example.com/signature.png"
+                  ref={signatureInputRef}
+                  type="file"
+                  accept="image/png,image/jpeg,image/webp,image/svg+xml,.svg"
+                  hidden
+                  onChange={(e) => onSignatureFile(e.target.files?.[0] ?? null)}
                 />
-              </Field>
+                <div className="flex flex-wrap items-center gap-3">
+                  <div className="flex h-14 w-28 items-center justify-center overflow-hidden rounded-xl border border-border bg-background">
+                    {signaturePreview ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={signaturePreview}
+                        alt="Signature"
+                        className="h-full w-full object-contain p-1"
+                      />
+                    ) : (
+                      <span className="text-[10px] text-muted">Signature</span>
+                    )}
+                  </div>
+                  <button
+                    type="button"
+                    disabled={uploadingSignature}
+                    onClick={() => signatureInputRef.current?.click()}
+                    className="rounded-full bg-accent px-4 py-2 text-sm font-medium text-accent-foreground disabled:opacity-60"
+                  >
+                    {uploadingSignature ? "Uploading..." : "Upload signature"}
+                  </button>
+                  {form.signatureUrl ? (
+                    <button
+                      type="button"
+                      onClick={onClearSignature}
+                      className="rounded-full border border-border px-4 py-2 text-sm font-medium text-danger hover:bg-danger-soft"
+                    >
+                      Remove
+                    </button>
+                  ) : null}
+                </div>
+              </div>
             </div>
           </section>
 
@@ -291,10 +469,10 @@ export default function OrganizationSettingsPage() {
             <div className="space-y-5 p-5">
               <div className="flex items-center gap-3">
                 <div className="flex h-14 w-14 items-center justify-center overflow-hidden rounded-xl border border-border bg-background">
-                  {form.logo ? (
+                  {logoPreview ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img
-                      src={form.logo}
+                      src={logoPreview}
                       alt="Organization logo preview"
                       className="h-full w-full object-contain p-1.5"
                     />
@@ -332,10 +510,10 @@ export default function OrganizationSettingsPage() {
                   </p>
                 </div>
                 <div className="flex h-12 w-24 items-center justify-center overflow-hidden rounded-lg border border-border bg-background">
-                  {form.signatureUrl ? (
+                  {signaturePreview ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img
-                      src={form.signatureUrl}
+                      src={signaturePreview}
                       alt="Signature preview"
                       className="h-full w-full object-contain p-1"
                     />
@@ -350,12 +528,13 @@ export default function OrganizationSettingsPage() {
           <div className="rounded-2xl border border-border bg-surface-muted/50 p-5">
             <p className="text-sm font-medium text-foreground">Tip</p>
             <p className="mt-2 text-sm leading-6 text-muted">
-              Keep logo and signature images on a public URL so certificates can
-              load them when generating PDFs.
+              Upload PNG or SVG for logo and signature. They become the default
+              branding on new certificate designs (still removable per template).
             </p>
           </div>
         </aside>
       </form>
+      {confirmDialog}
     </AppShell>
   );
 }

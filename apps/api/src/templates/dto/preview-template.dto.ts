@@ -7,6 +7,18 @@ export class PreviewTemplateDto {
   sampleName?: string;
 
   @IsOptional()
+  @IsString()
+  eventName?: string;
+
+  @IsOptional()
+  @IsString()
+  eventDate?: string;
+
+  @IsOptional()
+  @IsString()
+  eventLocation?: string;
+
+  @IsOptional()
   @Type(() => Number)
   @IsNumber()
   @Min(0)

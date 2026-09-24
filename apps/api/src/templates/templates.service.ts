@@ -39,6 +39,11 @@ const ALLOWED_IMAGE_MIME = new Set([
   'image/webp',
 ]);
 
+const ALLOWED_DESIGN_ASSET_MIME = new Set([
+  ...ALLOWED_IMAGE_MIME,
+  'image/svg+xml',
+]);
+
 @Injectable()
 export class TemplatesService {
   constructor(
@@ -184,6 +189,33 @@ export class TemplatesService {
     };
   }
 
+  async uploadDesignAsset(
+    organizationId: string,
+    file?: Express.Multer.File,
+  ) {
+    if (!file) {
+      throw new BadRequestException('Image file is required');
+    }
+
+    if (!ALLOWED_DESIGN_ASSET_MIME.has(file.mimetype)) {
+      throw new BadRequestException(
+        'Only PNG, JPG, WEBP, or SVG images are allowed',
+      );
+    }
+
+    const dir = this.getTemplatesUploadDir();
+    await mkdir(dir, { recursive: true });
+
+    const extension = this.extensionForImageMime(file.mimetype);
+    const fileName = `${organizationId.slice(0, 8)}-asset-${Date.now()}${extension}`;
+    await writeFile(path.join(dir, fileName), file.buffer);
+
+    return {
+      message: 'Image uploaded successfully',
+      url: `/uploads/templates/${fileName}`,
+    };
+  }
+
   async clearBackground(organizationId: string, id: string) {
     const template = await this.findOne(organizationId, id);
     await this.deleteUploadFile(template.backgroundUrl);
@@ -270,13 +302,14 @@ export class TemplatesService {
     }
 
     const sampleName = dto.sampleName?.trim() || 'Recipient Name';
+    const eventDate = dto.eventDate ? new Date(dto.eventDate) : new Date();
     const pdfPath = await this.pdfService.generateCertificatePdf({
       certificateNumber: `PREVIEW-${id.slice(-6).toUpperCase()}`,
       verificationToken: `preview-${id}`,
       participantName: sampleName,
-      eventName: 'Sample Event Preview',
-      eventDate: new Date(),
-      eventLocation: 'Preview',
+      eventName: dto.eventName?.trim() || template.titleText || 'Event',
+      eventDate: Number.isNaN(eventDate.getTime()) ? new Date() : eventDate,
+      eventLocation: dto.eventLocation?.trim() || undefined,
       organizationName: organization.name,
       signatoryName: organization.signatoryName,
       signatoryDesignation: organization.signatoryDesignation,
@@ -296,51 +329,14 @@ export class TemplatesService {
   }
 
   async ensureDefaults(organizationId: string) {
-    const count = await this.prisma.certificateTemplate.count({
-      where: { organizationId },
-    });
-
-    if (count > 0) {
-      return this.findAll(organizationId);
-    }
-
-    const defaults = [
-      {
-        name: 'Workshop Participation',
-        templateType: TemplateType.PARTICIPATION,
-        titleText: 'Certificate of Participation',
-        subtitleText: 'This is to certify that',
-        bodyText: 'has successfully participated in',
-      },
-      {
-        name: 'Course Completion',
-        templateType: TemplateType.COMPLETION,
-        titleText: 'Certificate of Completion',
-        subtitleText: 'This is to certify that',
-        bodyText: 'has successfully completed',
-      },
-      {
-        name: 'Achievement Award',
-        templateType: TemplateType.ACHIEVEMENT,
-        titleText: 'Certificate of Achievement',
-        subtitleText: 'This is to certify that',
-        bodyText: 'has demonstrated outstanding achievement in',
-      },
-    ];
-
-    await this.prisma.certificateTemplate.createMany({
-      data: defaults.map((item) => ({
-        organizationId,
-        ...item,
-      })),
-    });
-
+    // Full visual designs are seeded from the web client (designJson).
     return this.findAll(organizationId);
   }
 
   private extensionForImageMime(mime: string) {
     if (mime === 'image/png') return '.png';
     if (mime === 'image/webp') return '.webp';
+    if (mime === 'image/svg+xml') return '.svg';
     return '.jpg';
   }
 

@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "react-toastify";
 import { AppShell } from "@/components/app-shell";
+import { useConfirm } from "@/components/confirm-modal";
 import { getAccessToken } from "@/lib/auth";
 import {
   deleteTemplate,
@@ -15,6 +16,7 @@ import {
 
 export default function TemplatesPage() {
   const router = useRouter();
+  const { confirm, confirmDialog } = useConfirm();
   const [loading, setLoading] = useState(true);
   const [templates, setTemplates] = useState<CertificateTemplate[]>([]);
 
@@ -39,18 +41,33 @@ export default function TemplatesPage() {
   }, [router]);
 
   async function onSeedDefaults() {
+    const ok = await confirm({
+      title: "Add default templates?",
+      message:
+        "This will create or refresh the 20 built-in certificate templates for your organization.",
+      confirmLabel: "Yes, add them",
+      cancelLabel: "No",
+    });
+    if (!ok) return;
+
     try {
       const data = await seedDefaultTemplates();
       setTemplates(data);
-      toast.success("Default templates ready");
+      toast.success("Default templates refreshed");
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Seed failed");
     }
   }
 
   async function onDelete(template: CertificateTemplate) {
-    const confirmed = window.confirm(`Delete template "${template.name}"?`);
-    if (!confirmed) return;
+    const ok = await confirm({
+      title: "Delete this template?",
+      message: `“${template.name}” will be permanently removed. Events using it may stop issuing certificates correctly.`,
+      confirmLabel: "Yes, delete",
+      cancelLabel: "No",
+      tone: "danger",
+    });
+    if (!ok) return;
 
     try {
       const result = await deleteTemplate(template.id);
@@ -72,7 +89,7 @@ export default function TemplatesPage() {
   return (
     <AppShell
       title="Certificate templates"
-      subtitle="Design certificates with the visual editor — Canva-style canvas."
+      subtitle="Design certificates with the visual editor."
       actions={
         <>
           <Link
@@ -81,13 +98,6 @@ export default function TemplatesPage() {
           >
             Events
           </Link>
-          <button
-            type="button"
-            onClick={onSeedDefaults}
-            className="inline-flex h-10 items-center rounded-full border border-border bg-surface px-4 text-sm font-medium text-foreground transition hover:bg-surface-muted"
-          >
-            Add defaults
-          </button>
           <Link
             href="/templates/designer"
             className="inline-flex h-10 items-center rounded-full bg-accent px-4 text-sm font-medium text-accent-foreground transition hover:opacity-90"
@@ -103,8 +113,8 @@ export default function TemplatesPage() {
             Design your first certificate
           </p>
           <p className="mt-2 text-sm text-muted">
-            Start from the white &amp; gold elegant layout, drag text and seals,
-            then preview the PDF.
+            Add 20 ready-made attractive templates, or open the designer to
+            build your own.
           </p>
           <div className="mt-6 flex flex-wrap justify-center gap-3">
             <Link
@@ -118,7 +128,7 @@ export default function TemplatesPage() {
               onClick={onSeedDefaults}
               className="rounded-full border border-border px-5 py-2.5 text-sm font-medium text-foreground"
             >
-              Add default templates
+              Add 20 default templates
             </button>
           </div>
         </div>
@@ -184,6 +194,7 @@ export default function TemplatesPage() {
           ))}
         </div>
       )}
+      {confirmDialog}
     </AppShell>
   );
 }

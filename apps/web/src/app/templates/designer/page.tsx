@@ -4,11 +4,16 @@ import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "react-toastify";
 import { CertificateDesigner } from "@/components/certificate-designer";
+import { useConfirm } from "@/components/confirm-modal";
 import { getAccessToken } from "@/lib/auth";
 import {
+  applyOrgBrandingToDesign,
   createElegantStarterDesign,
+  normalizeDesign,
   type CertificateDesign,
+  type OrgBranding,
 } from "@/lib/certificate-design";
+import { getOrganization } from "@/lib/organizations";
 import {
   createTemplate,
   getTemplate,
@@ -17,18 +22,36 @@ import {
   type TemplateType,
 } from "@/lib/templates";
 
+function toOrgBranding(org: {
+  name: string;
+  logo: string | null;
+  signatureUrl: string | null;
+  signatoryName: string | null;
+  signatoryDesignation: string | null;
+}): OrgBranding {
+  return {
+    organizationName: org.name,
+    logo: org.logo,
+    signatureUrl: org.signatureUrl,
+    signatoryName: org.signatoryName,
+    signatoryDesignation: org.signatoryDesignation,
+  };
+}
+
 function DesignerInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const editId = searchParams.get("id");
+  const { confirm, confirmDialog } = useConfirm();
 
   const [ready, setReady] = useState(false);
   const [templateId, setTemplateId] = useState<string | null>(editId);
   const [name, setName] = useState("White and Gold Elegant Certificate");
   const [templateType] = useState<TemplateType>("COMPLETION");
   const [design, setDesign] = useState<CertificateDesign>(() =>
-    createElegantStarterDesign(),
+    normalizeDesign(createElegantStarterDesign()),
   );
+  const [orgBranding, setOrgBranding] = useState<OrgBranding | null>(null);
   const [saving, setSaving] = useState(false);
   const [previewing, setPreviewing] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
@@ -40,31 +63,43 @@ function DesignerInner() {
       return;
     }
 
-    if (!editId) {
-      setReady(true);
-      return;
-    }
+    async function load() {
+      try {
+        const org = await getOrganization();
+        const branding = toOrgBranding(org);
+        setOrgBranding(branding);
 
-    getTemplate(editId)
-      .then((tpl) => {
-        setTemplateId(tpl.id);
-        setName(tpl.name);
-        if (tpl.designJson && typeof tpl.designJson === "object") {
-          setDesign(tpl.designJson as CertificateDesign);
+        if (editId) {
+          const tpl = await getTemplate(editId);
+          setTemplateId(tpl.id);
+          setName(tpl.name);
+          if (tpl.designJson && typeof tpl.designJson === "object") {
+            setDesign(normalizeDesign(tpl.designJson as CertificateDesign));
+          } else {
+            setDesign(
+              applyOrgBrandingToDesign(
+                createElegantStarterDesign(
+                  tpl.titleText || "CERTIFICATE",
+                  tpl.subtitleText || "OF COMPLETION",
+                ),
+                branding,
+              ),
+            );
+          }
         } else {
           setDesign(
-            createElegantStarterDesign(
-              tpl.titleText || "CERTIFICATE",
-              tpl.subtitleText || "OF COMPLETION",
-            ),
+            applyOrgBrandingToDesign(createElegantStarterDesign(), branding),
           );
         }
-      })
-      .catch(() => {
-        toast.error("Failed to load template");
-        router.replace("/templates");
-      })
-      .finally(() => setReady(true));
+      } catch {
+        toast.error("Failed to load designer");
+        if (editId) router.replace("/templates");
+      } finally {
+        setReady(true);
+      }
+    }
+
+    void load();
   }, [editId, router]);
 
   useEffect(() => {
@@ -105,6 +140,16 @@ function DesignerInner() {
   }
 
   async function onSave() {
+    const ok = await confirm({
+      title: templateId ? "Save certificate design?" : "Create certificate design?",
+      message: templateId
+        ? `Save changes to “${name.trim() || "Untitled"}”?`
+        : `Create a new template named “${name.trim() || "Untitled"}”?`,
+      confirmLabel: "Yes, save",
+      cancelLabel: "No",
+    });
+    if (!ok) return;
+
     try {
       setSaving(true);
       const wasNew = !templateId;
@@ -154,6 +199,7 @@ function DesignerInner() {
         onPreview={onPreview}
         saving={saving}
         previewing={previewing}
+        orgBranding={orgBranding}
       />
       {previewUrl ? (
         <div className="designer-preview-modal">
@@ -175,6 +221,7 @@ function DesignerInner() {
           </div>
         </div>
       ) : null}
+      {confirmDialog}
     </>
   );
 }

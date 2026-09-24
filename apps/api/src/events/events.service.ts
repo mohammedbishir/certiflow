@@ -63,12 +63,28 @@ export class EventsService {
       throw new NotFoundException('Event not found');
     }
 
+    // Events without a template cannot stay active for registration.
+    if (event.status === EventStatus.ACTIVE && !event.templateId) {
+      return this.prisma.event.update({
+        where: { id },
+        data: { status: EventStatus.INACTIVE },
+        select: eventSelect,
+      });
+    }
+
     return event;
   }
 
   async create(organizationId: string, dto: CreateEventDto) {
     if (dto.templateId) {
       await this.assertTemplate(organizationId, dto.templateId);
+    }
+
+    const requestedStatus = dto.status ?? EventStatus.INACTIVE;
+    if (requestedStatus === EventStatus.ACTIVE && !dto.templateId) {
+      throw new BadRequestException(
+        'Select a certificate template before activating this event',
+      );
     }
 
     const event = await this.prisma.event.create({
@@ -79,7 +95,7 @@ export class EventsService {
         description: dto.description,
         date: new Date(dto.date),
         location: dto.location,
-        status: dto.status ?? EventStatus.ACTIVE,
+        status: requestedStatus,
         registrationToken: this.createRegistrationToken(),
       },
       select: eventSelect,
@@ -92,11 +108,27 @@ export class EventsService {
   }
 
   async update(organizationId: string, id: string, dto: UpdateEventDto) {
-    await this.findOne(organizationId, id);
+    const existing = await this.findOne(organizationId, id);
 
     if (dto.templateId) {
       await this.assertTemplate(organizationId, dto.templateId);
     }
+
+    const nextTemplateId =
+      dto.templateId === undefined ? existing.templateId : dto.templateId;
+    const nextStatus = dto.status ?? existing.status;
+
+    if (nextStatus === EventStatus.ACTIVE && !nextTemplateId) {
+      throw new BadRequestException(
+        'Select a certificate template before activating this event',
+      );
+    }
+
+    // Removing the template while active closes registration automatically.
+    const statusToSave =
+      !nextTemplateId && existing.status === EventStatus.ACTIVE
+        ? EventStatus.INACTIVE
+        : nextStatus;
 
     const event = await this.prisma.event.update({
       where: { id },
@@ -105,14 +137,19 @@ export class EventsService {
         description: dto.description,
         date: dto.date ? new Date(dto.date) : undefined,
         location: dto.location,
-        status: dto.status,
+        status: statusToSave,
         templateId: dto.templateId === undefined ? undefined : dto.templateId,
       },
       select: eventSelect,
     });
 
     return {
-      message: 'Event updated successfully',
+      message:
+        statusToSave === EventStatus.INACTIVE &&
+        existing.status === EventStatus.ACTIVE &&
+        !nextTemplateId
+          ? 'Event updated and deactivated — a certificate template is required for registration'
+          : 'Event updated successfully',
       event,
     };
   }
@@ -130,7 +167,13 @@ export class EventsService {
   }
 
   async setStatus(organizationId: string, id: string, status: EventStatus) {
-    await this.findOne(organizationId, id);
+    const existing = await this.findOne(organizationId, id);
+
+    if (status === EventStatus.ACTIVE && !existing.templateId) {
+      throw new BadRequestException(
+        'Select a certificate template before activating this event',
+      );
+    }
 
     const event = await this.prisma.event.update({
       where: { id },
@@ -168,7 +211,13 @@ export class EventsService {
     eventId: string,
     csv: string,
   ) {
-    await this.findOne(organizationId, eventId);
+    const event = await this.findOne(organizationId, eventId);
+
+    if (!event.templateId) {
+      throw new BadRequestException(
+        'Select a certificate template before importing participants',
+      );
+    }
 
     const rows = this.parseParticipantCsv(csv);
     if (rows.length === 0) {

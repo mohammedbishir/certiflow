@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "react-toastify";
 import { AppShell } from "@/components/app-shell";
+import { useConfirm } from "@/components/confirm-modal";
 import { getAccessToken } from "@/lib/auth";
 import {
   activateEvent,
@@ -25,6 +26,7 @@ function formatDate(value: string) {
 
 export default function EventsPage() {
   const router = useRouter();
+  const { confirm, confirmDialog } = useConfirm();
   const [loading, setLoading] = useState(true);
   const [events, setEvents] = useState<EventItem[]>([]);
 
@@ -49,11 +51,22 @@ export default function EventsPage() {
   }, [router]);
 
   async function onToggleStatus(event: EventItem) {
+    const activating = event.status !== "ACTIVE";
+    const ok = await confirm({
+      title: activating ? "Activate this event?" : "Deactivate this event?",
+      message: activating
+        ? `“${event.name}” will open for participant registration.`
+        : `“${event.name}” registration will be closed.`,
+      confirmLabel: activating ? "Yes, activate" : "Yes, deactivate",
+      cancelLabel: "No",
+      tone: activating ? "default" : "danger",
+    });
+    if (!ok) return;
+
     try {
-      const result =
-        event.status === "ACTIVE"
-          ? await deactivateEvent(event.id)
-          : await activateEvent(event.id);
+      const result = activating
+        ? await activateEvent(event.id)
+        : await deactivateEvent(event.id);
       toast.success(result.message);
       await loadEvents();
     } catch (err) {
@@ -62,8 +75,14 @@ export default function EventsPage() {
   }
 
   async function onDelete(event: EventItem) {
-    const confirmed = window.confirm(`Delete event "${event.name}"?`);
-    if (!confirmed) return;
+    const ok = await confirm({
+      title: "Delete this event?",
+      message: `“${event.name}” and its participants/certificates will be permanently removed.`,
+      confirmLabel: "Yes, delete",
+      cancelLabel: "No",
+      tone: "danger",
+    });
+    if (!ok) return;
 
     try {
       const result = await deleteEvent(event.id);
@@ -176,6 +195,12 @@ export default function EventsPage() {
                     href={`/events/${event.id}`}
                     className="rounded-full border border-border px-3.5 py-2 text-sm font-medium text-foreground hover:bg-surface-muted"
                   >
+                    View
+                  </Link>
+                  <Link
+                    href={`/events/${event.id}/edit`}
+                    className="rounded-full border border-border px-3.5 py-2 text-sm font-medium text-foreground hover:bg-surface-muted"
+                  >
                     Edit
                   </Link>
                   <button
@@ -198,6 +223,7 @@ export default function EventsPage() {
           ))}
         </div>
       )}
+      {confirmDialog}
     </AppShell>
   );
 }

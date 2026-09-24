@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { toast } from "react-toastify";
 import { AppShell } from "@/components/app-shell";
+import { useConfirm } from "@/components/confirm-modal";
 import { TemplateCanvasEditor } from "@/components/template-canvas-editor";
 import { getAccessToken } from "@/lib/auth";
 import {
@@ -22,6 +23,7 @@ import {
 export default function EditTemplatePage() {
   const router = useRouter();
   const params = useParams<{ id: string }>();
+  const { confirm, confirmDialog } = useConfirm();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -97,6 +99,15 @@ export default function EditTemplatePage() {
 
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+
+    const ok = await confirm({
+      title: "Save template settings?",
+      message: "Update this template’s name, type, and placement settings?",
+      confirmLabel: "Yes, save",
+      cancelLabel: "No",
+    });
+    if (!ok) return;
+
     setSaving(true);
     try {
       const result = await saveTemplateSettings();
@@ -131,6 +142,15 @@ export default function EditTemplatePage() {
   }
 
   async function onClearBackground() {
+    const ok = await confirm({
+      title: "Remove background image?",
+      message: "This template’s background image will be removed.",
+      confirmLabel: "Yes, remove",
+      cancelLabel: "No",
+      tone: "danger",
+    });
+    if (!ok) return;
+
     setUploading(true);
     try {
       const result = await clearTemplateBackground(params.id);
@@ -168,6 +188,15 @@ export default function EditTemplatePage() {
   }
 
   async function onClearPdf() {
+    const ok = await confirm({
+      title: "Remove designer PDF?",
+      message: "This template’s uploaded PDF background will be removed.",
+      confirmLabel: "Yes, remove",
+      cancelLabel: "No",
+      tone: "danger",
+    });
+    if (!ok) return;
+
     setUploading(true);
     try {
       const result = await clearTemplatePdf(params.id);
@@ -276,7 +305,7 @@ export default function EditTemplatePage() {
               1. Upload designer PDF
             </p>
             <p className="mt-1 text-xs text-muted">
-              Best result: leave the name area blank in Canva/Figma export. If
+              Best result: leave the name area blank in your design export. If
               “Recipient” is printed, CertiFlow covers it with a white patch.
             </p>
             <div className="mt-3 flex flex-wrap gap-2">
@@ -481,6 +510,7 @@ export default function EditTemplatePage() {
           </div>
         </section>
       </div>
+      {confirmDialog}
     </AppShell>
   );
 }
