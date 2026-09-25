@@ -88,8 +88,6 @@ export default function NewEventPage() {
       actions={
         <Link
           href="/events"
-          data-tooltip="Back to events list"
-          data-tooltip-pos="bottom"
           className="inline-flex h-10 items-center rounded-full border border-border bg-surface px-4 text-sm font-medium text-foreground transition hover:bg-surface-muted"
         >
           Back
@@ -203,7 +201,6 @@ export default function NewEventPage() {
                     : prev.status,
               }));
             }}
-            data-tooltip="Choose the certificate layout for this event"
             className="w-full rounded-xl border border-border bg-background px-3.5 py-2.5 text-foreground outline-none ring-accent focus:ring-2"
           >
             <option value="">Select a template</option>
@@ -252,14 +249,12 @@ export default function NewEventPage() {
           <button
             type="submit"
             disabled={saving}
-            data-tooltip="Create this event"
             className="rounded-full bg-accent px-5 py-2.5 text-sm font-medium text-accent-foreground transition hover:opacity-90 disabled:opacity-60"
           >
             {saving ? "Creating..." : "Create event"}
           </button>
           <Link
             href="/events"
-            data-tooltip="Cancel and return to events"
             className="rounded-full border border-border px-5 py-2.5 text-sm font-medium text-foreground hover:bg-surface-muted"
           >
             Cancel

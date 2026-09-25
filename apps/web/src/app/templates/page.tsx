@@ -11,7 +11,6 @@ import { getAccessToken } from "@/lib/auth";
 import {
   deleteTemplate,
   listTemplates,
-  seedDefaultTemplates,
   type CertificateTemplate,
 } from "@/lib/templates";
 
@@ -40,25 +39,6 @@ export default function TemplatesPage() {
       })
       .finally(() => setLoading(false));
   }, [router]);
-
-  async function onSeedDefaults() {
-    const ok = await confirm({
-      title: "Add default templates?",
-      message:
-        "This will create or refresh the 20 built-in certificate templates for your organization.",
-      confirmLabel: "Yes, add them",
-      cancelLabel: "No",
-    });
-    if (!ok) return;
-
-    try {
-      const data = await seedDefaultTemplates();
-      setTemplates(data);
-      toast.success("Default templates refreshed");
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Seed failed");
-    }
-  }
 
   async function onDelete(template: CertificateTemplate) {
     const ok = await confirm({
@@ -95,16 +75,12 @@ export default function TemplatesPage() {
         <>
           <Link
             href="/events"
-            data-tooltip="Back to events"
-            data-tooltip-pos="bottom"
             className="inline-flex h-10 items-center rounded-full border border-border bg-surface px-4 text-sm font-medium text-foreground transition hover:bg-surface-muted"
           >
             Events
           </Link>
           <Link
             href="/templates/designer"
-            data-tooltip="Create or edit a certificate layout"
-            data-tooltip-pos="bottom"
             className="inline-flex h-10 items-center rounded-full bg-accent px-4 text-sm font-medium text-accent-foreground transition hover:opacity-90"
           >
             Open designer
@@ -119,25 +95,15 @@ export default function TemplatesPage() {
             <InfoTip text="Templates define how certificates look when issued for an event" />
           </p>
           <p className="mt-2 text-sm text-muted">
-            Add 20 ready-made attractive templates, or open the designer to
-            build your own.
+            Open the designer to build your own certificate template.
           </p>
           <div className="mt-6 flex flex-wrap justify-center gap-3">
             <Link
               href="/templates/designer"
-              data-tooltip="Open the visual certificate editor"
               className="rounded-full bg-accent px-5 py-2.5 text-sm font-medium text-accent-foreground"
             >
               Open designer
             </Link>
-            <button
-              type="button"
-              onClick={onSeedDefaults}
-              data-tooltip="Add or refresh 20 built-in certificate designs"
-              className="rounded-full border border-border px-5 py-2.5 text-sm font-medium text-foreground"
-            >
-              Add 20 default templates
-            </button>
           </div>
         </div>
       ) : (
@@ -176,11 +142,6 @@ export default function TemplatesPage() {
                         ? "bg-accent/15 text-accent"
                         : "bg-surface-muted text-muted"
                     }`}
-                    data-tooltip={
-                      template.isActive
-                        ? "Available to assign to events"
-                        : "Inactive — not available for new events"
-                    }
                   >
                     {template.isActive ? "Active" : "Inactive"}
                   </span>
@@ -188,7 +149,6 @@ export default function TemplatesPage() {
                 <div className="mt-4 flex flex-wrap gap-2">
                   <Link
                     href={`/templates/designer?id=${template.id}`}
-                    data-tooltip="Edit this template in the designer"
                     className="rounded-full border border-border px-3.5 py-2 text-sm font-medium text-foreground hover:bg-surface-muted"
                   >
                     Open designer
@@ -196,7 +156,6 @@ export default function TemplatesPage() {
                   <button
                     type="button"
                     onClick={() => onDelete(template)}
-                    data-tooltip="Permanently delete this template"
                     className="rounded-full border border-border px-3.5 py-2 text-sm font-medium text-danger hover:bg-danger-soft"
                   >
                     Delete

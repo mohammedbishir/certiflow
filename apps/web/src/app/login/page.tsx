@@ -9,8 +9,8 @@ import { loginRequest, saveTokens } from "@/lib/auth";
 
 export default function LoginPage() {
   const router = useRouter();
-  const [email, setEmail] = useState("mohammed@abctech.test");
-  const [password, setPassword] = useState("password123");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -43,7 +43,6 @@ export default function LoginPage() {
         <div className="w-full max-w-md rounded-2xl border border-border bg-surface p-8 shadow-[var(--shadow)]">
           <Link
             href="/"
-            data-tooltip="Back to home"
             className="text-lg font-semibold tracking-tight text-foreground"
           >
             CertiFlow
@@ -94,12 +93,21 @@ export default function LoginPage() {
             <button
               type="submit"
               disabled={loading}
-              data-tooltip="Sign in to your admin account"
               className="w-full rounded-xl bg-accent px-4 py-2.5 text-sm font-medium text-accent-foreground transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
             >
               {loading ? "Signing in..." : "Sign in"}
             </button>
           </form>
+
+          <p className="mt-6 text-center text-sm text-muted">
+            New organization?{" "}
+            <Link
+              href="/signup"
+              className="font-medium text-accent hover:underline"
+            >
+              Create organization
+            </Link>
+          </p>
         </div>
       </main>
     </div>

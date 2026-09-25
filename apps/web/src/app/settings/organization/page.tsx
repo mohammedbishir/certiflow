@@ -242,8 +242,6 @@ export default function OrganizationSettingsPage() {
       actions={
         <Link
           href="/dashboard"
-          data-tooltip="Back to dashboard"
-          data-tooltip-pos="bottom"
           className="inline-flex h-10 items-center rounded-full border border-border bg-surface px-4 text-sm font-medium text-foreground transition hover:bg-surface-muted"
         >
           Dashboard
@@ -351,7 +349,6 @@ export default function OrganizationSettingsPage() {
                     type="button"
                     disabled={uploadingLogo}
                     onClick={() => logoInputRef.current?.click()}
-                    data-tooltip="Upload organization logo (PNG, JPG, SVG)"
                     className="rounded-full bg-accent px-4 py-2 text-sm font-medium text-accent-foreground disabled:opacity-60"
                   >
                     {uploadingLogo ? "Uploading..." : "Upload logo"}
@@ -360,7 +357,6 @@ export default function OrganizationSettingsPage() {
                     <button
                       type="button"
                       onClick={onClearLogo}
-                      data-tooltip="Remove the current logo"
                       className="rounded-full border border-border px-4 py-2 text-sm font-medium text-danger hover:bg-danger-soft"
                     >
                       Remove
@@ -400,7 +396,6 @@ export default function OrganizationSettingsPage() {
                     type="button"
                     disabled={uploadingSignature}
                     onClick={() => signatureInputRef.current?.click()}
-                    data-tooltip="Upload signatory signature image"
                     className="rounded-full bg-accent px-4 py-2 text-sm font-medium text-accent-foreground disabled:opacity-60"
                   >
                     {uploadingSignature ? "Uploading..." : "Upload signature"}
@@ -409,7 +404,6 @@ export default function OrganizationSettingsPage() {
                     <button
                       type="button"
                       onClick={onClearSignature}
-                      data-tooltip="Remove the current signature"
                       className="rounded-full border border-border px-4 py-2 text-sm font-medium text-danger hover:bg-danger-soft"
                     >
                       Remove
@@ -460,14 +454,12 @@ export default function OrganizationSettingsPage() {
             <button
               type="submit"
               disabled={saving}
-              data-tooltip="Save organization profile and branding"
               className="rounded-full bg-accent px-6 py-2.5 text-sm font-medium text-accent-foreground transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
             >
               {saving ? "Saving..." : "Save organization"}
             </button>
             <Link
               href="/dashboard"
-              data-tooltip="Discard changes and return"
               className="rounded-full border border-border bg-surface px-5 py-2.5 text-sm font-medium text-foreground transition hover:bg-surface-muted"
             >
               Cancel

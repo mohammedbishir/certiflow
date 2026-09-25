@@ -200,7 +200,6 @@ function DesignerInner() {
               <button
                 type="button"
                 className="designer-btn ghost"
-                data-tooltip="Close preview"
                 onClick={() => {
                   URL.revokeObjectURL(previewUrl);
                   setPreviewUrl(null);

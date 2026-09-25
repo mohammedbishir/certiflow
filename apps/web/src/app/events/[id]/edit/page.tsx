@@ -113,16 +113,12 @@ export default function EditEventPage() {
         <>
           <Link
             href={`/events/${params.id}`}
-            data-tooltip="View event details"
-            data-tooltip-pos="bottom"
             className="inline-flex h-10 items-center rounded-full border border-border bg-surface px-4 text-sm font-medium text-foreground transition hover:bg-surface-muted"
           >
             Event details
           </Link>
           <Link
             href="/events"
-            data-tooltip="Back to all events"
-            data-tooltip-pos="bottom"
             className="inline-flex h-10 items-center rounded-full border border-border bg-surface px-4 text-sm font-medium text-foreground transition hover:bg-surface-muted"
           >
             All events
@@ -210,7 +206,6 @@ export default function EditEventPage() {
                     : prev.status,
               }));
             }}
-            data-tooltip="Choose the certificate layout for this event"
             className="w-full rounded-xl border border-border bg-background px-3.5 py-2.5 text-foreground outline-none ring-accent focus:ring-2"
           >
             <option value="">Select a template</option>
@@ -259,14 +254,12 @@ export default function EditEventPage() {
           <button
             type="submit"
             disabled={saving}
-            data-tooltip="Save event changes"
             className="rounded-full bg-accent px-5 py-2.5 text-sm font-medium text-accent-foreground transition hover:opacity-90 disabled:opacity-60"
           >
             {saving ? "Saving..." : "Save changes"}
           </button>
           <Link
             href={`/events/${params.id}`}
-            data-tooltip="Discard changes"
             className="rounded-full border border-border px-5 py-2.5 text-sm font-medium text-foreground hover:bg-surface-muted"
           >
             Cancel

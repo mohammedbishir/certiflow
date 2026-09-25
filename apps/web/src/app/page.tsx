@@ -24,18 +24,16 @@ export default function Home() {
         </p>
         <div className="mt-8 flex flex-wrap gap-3">
           <Link
-            href="/login"
-            data-tooltip="Sign in as an organization admin"
+            href="/signup"
             className="inline-flex rounded-full bg-accent px-5 py-2.5 text-sm font-medium text-accent-foreground transition hover:opacity-90"
           >
-            Admin login
+            Create organization
           </Link>
           <Link
-            href="/dashboard"
-            data-tooltip="Go to your CertiFlow dashboard"
+            href="/login"
             className="inline-flex rounded-full border border-border bg-surface px-5 py-2.5 text-sm font-medium text-foreground transition hover:bg-surface-muted"
           >
-            Open dashboard
+            Admin login
           </Link>
         </div>
       </main>

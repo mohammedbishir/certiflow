@@ -63,6 +63,39 @@ export async function loginRequest(
   return data as AuthResponse;
 }
 
+export type RegisterOrgInput = {
+  organizationName: string;
+  organizationEmail: string;
+  organizationPhone?: string;
+  name: string;
+  email: string;
+  password: string;
+};
+
+export async function registerRequest(
+  input: RegisterOrgInput,
+): Promise<AuthResponse> {
+  const response = await fetch(`${getApiBase()}/auth/register`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+  });
+
+  const data = await response.json().catch(() => ({}));
+
+  if (!response.ok) {
+    throw new Error(
+      typeof data.message === "string"
+        ? data.message
+        : Array.isArray(data.message)
+          ? data.message.join(", ")
+          : "Registration failed",
+    );
+  }
+
+  return data as AuthResponse;
+}
+
 export async function meRequest(accessToken: string) {
   const response = await fetch(`${getApiBase()}/auth/me`, {
     headers: { Authorization: `Bearer ${accessToken}` },

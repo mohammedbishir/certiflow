@@ -419,8 +419,6 @@ export default function EventDetailPage() {
         <>
           <Link
             href="/events"
-            data-tooltip="Back to all events"
-            data-tooltip-pos="bottom"
             className="inline-flex h-10 items-center rounded-full border border-border bg-surface px-4 text-sm font-medium text-foreground transition hover:bg-surface-muted"
           >
             All events
@@ -429,20 +427,12 @@ export default function EventDetailPage() {
             type="button"
             disabled={previewingEvent || !hasTemplate}
             onClick={() => void onPreviewEventCertificate()}
-            data-tooltip={
-              hasTemplate
-                ? "Preview sample certificate with this event’s template"
-                : "Assign a template first"
-            }
-            data-tooltip-pos="bottom"
             className="inline-flex h-10 items-center rounded-full border border-border bg-surface px-4 text-sm font-medium text-foreground transition hover:bg-surface-muted disabled:opacity-60"
           >
             {previewingEvent ? "Loading…" : "Preview certificate"}
           </button>
           <Link
             href={`/events/${event.id}/edit`}
-            data-tooltip="Edit name, date, template, and status"
-            data-tooltip-pos="bottom"
             className="inline-flex h-10 items-center rounded-full bg-accent px-4 text-sm font-medium text-accent-foreground transition hover:opacity-90"
           >
             Edit event
@@ -460,7 +450,6 @@ export default function EventDetailPage() {
             </p>
             <Link
               href={`/events/${event.id}/edit`}
-              data-tooltip="Assign a certificate template to this event"
               className="mt-3 inline-flex rounded-full bg-accent px-4 py-2 text-sm font-medium text-accent-foreground hover:opacity-90"
             >
               Choose template
@@ -479,35 +468,23 @@ export default function EventDetailPage() {
                           ? "bg-accent/15 text-accent"
                           : "bg-surface-muted text-muted"
                       }`}
-                      data-tooltip={
-                        event.status === "ACTIVE"
-                          ? "Open for participant registration"
-                          : "Registration is closed"
-                      }
                     >
                       {event.status}
                     </span>
                     <span
                       className="rounded-full border border-border px-2.5 py-1 text-xs font-medium text-muted"
-                      data-tooltip={
-                        event.kind === "SPORTS_MEET"
-                          ? "Sports meet — games with 1st / 2nd / 3rd certificates"
-                          : "Workshop — one certificate per registration"
-                      }
                     >
                       {event.kind === "SPORTS_MEET" ? "Sports meet" : "Workshop"}
                     </span>
                   {event.template ? (
                     <span
                       className="rounded-full border border-border px-2.5 py-1 text-xs font-medium text-muted"
-                      data-tooltip="Certificate template assigned to this event"
                     >
                       {event.template.name} · {event.template.templateType}
                     </span>
                   ) : (
                     <span
                       className="rounded-full border border-amber-500/40 bg-amber-500/10 px-2.5 py-1 text-xs font-medium text-amber-800 dark:text-amber-200"
-                      data-tooltip="Required before activation and registration"
                     >
                       No template
                     </span>
@@ -543,18 +520,12 @@ export default function EventDetailPage() {
                   type="button"
                   disabled={previewingEvent || !hasTemplate}
                   onClick={() => void onPreviewEventCertificate()}
-                  data-tooltip={
-                    hasTemplate
-                      ? "Preview sample certificate PDF"
-                      : "Assign a template first"
-                  }
                   className="rounded-full border border-border px-4 py-2 text-sm font-medium text-foreground hover:bg-surface-muted disabled:opacity-60"
                 >
                   {previewingEvent ? "Loading…" : "Preview certificate"}
                 </button>
                 <Link
                   href={`/events/${event.id}/edit`}
-                  data-tooltip="Edit event details and template"
                   className="rounded-full bg-accent px-4 py-2 text-sm font-medium text-accent-foreground hover:opacity-90"
                 >
                   Edit event details
@@ -566,13 +537,6 @@ export default function EventDetailPage() {
                     (event.status !== "ACTIVE" && !hasTemplate)
                   }
                   onClick={onToggleEventStatus}
-                  data-tooltip={
-                    event.status !== "ACTIVE" && !hasTemplate
-                      ? "Select a certificate template first"
-                      : event.status === "ACTIVE"
-                        ? "Close participant registration"
-                        : "Open participant registration"
-                  }
                   className="rounded-full border border-border px-4 py-2 text-sm font-medium text-foreground hover:bg-surface-muted disabled:opacity-60"
                 >
                   {togglingStatus
@@ -636,11 +600,6 @@ export default function EventDetailPage() {
                   type="button"
                   onClick={copyLink}
                   disabled={!registrationReady}
-                  data-tooltip={
-                    registrationReady
-                      ? "Copy registration URL to clipboard"
-                      : "Activate event with a template first"
-                  }
                   className="rounded-full border border-border px-4 py-2 text-sm font-medium text-foreground hover:bg-surface-muted disabled:opacity-40"
                 >
                   Copy link
@@ -654,11 +613,6 @@ export default function EventDetailPage() {
                   target="_blank"
                   rel="noreferrer"
                   aria-disabled={!registrationReady}
-                  data-tooltip={
-                    registrationReady
-                      ? "Open the public registration page"
-                      : "Activate event with a template first"
-                  }
                   onClick={(e) => {
                     if (!registrationReady) e.preventDefault();
                   }}
@@ -691,11 +645,6 @@ export default function EventDetailPage() {
                 </p>
               ) : null}
               <label
-                data-tooltip={
-                  hasTemplate
-                    ? "Upload a CSV of participants"
-                    : "Assign a template before importing"
-                }
                 className={`mt-4 inline-flex rounded-full border border-border px-4 py-2 text-sm font-medium text-foreground ${
                   importing || !hasTemplate
                     ? "cursor-not-allowed opacity-40"
@@ -720,7 +669,6 @@ export default function EventDetailPage() {
                   "fullName,email,phone\nJane Doe,jane@example.com,+91 98765 43210\n",
                 )}`}
                 download="participants-sample.csv"
-                data-tooltip="Download a sample CSV with the correct columns"
                 className="ml-2 inline-flex text-sm font-medium text-accent hover:underline"
               >
                 Sample CSV
@@ -768,14 +716,12 @@ export default function EventDetailPage() {
                 value={participantQuery}
                 onChange={(e) => setParticipantQuery(e.target.value)}
                 placeholder="Search name, email, phone…"
-                data-tooltip="Filter the participants list"
                 className="h-10 min-w-0 flex-1 rounded-xl border border-border bg-background px-3.5 text-sm text-foreground outline-none ring-accent focus:ring-2 sm:w-64 sm:flex-none"
               />
               <button
                 type="button"
                 disabled={filteredParticipants.length === 0}
                 onClick={() => exportParticipants("xlsx")}
-                data-tooltip="Export visible participants to Excel"
                 className="inline-flex h-10 shrink-0 items-center rounded-full border border-border px-4 text-sm font-medium text-foreground hover:bg-surface-muted disabled:opacity-40"
               >
                 Excel
@@ -784,7 +730,6 @@ export default function EventDetailPage() {
                 type="button"
                 disabled={filteredParticipants.length === 0}
                 onClick={() => exportParticipants("pdf")}
-                data-tooltip="Export visible participants to PDF"
                 className="inline-flex h-10 shrink-0 items-center rounded-full border border-border px-4 text-sm font-medium text-foreground hover:bg-surface-muted disabled:opacity-40"
               >
                 PDF
@@ -868,7 +813,6 @@ export default function EventDetailPage() {
                     e.target.value as "ALL" | "VALID" | "REVOKED",
                   )
                 }
-                data-tooltip="Filter by certificate status"
                 className="h-10 shrink-0 rounded-xl border border-border bg-background px-3 text-sm text-foreground outline-none"
               >
                 <option value="ALL">All status</option>
@@ -880,14 +824,12 @@ export default function EventDetailPage() {
                 value={certQuery}
                 onChange={(e) => setCertQuery(e.target.value)}
                 placeholder="Search name, email, cert #…"
-                data-tooltip="Search certificates"
                 className="h-10 min-w-0 flex-1 rounded-xl border border-border bg-background px-3.5 text-sm text-foreground outline-none ring-accent focus:ring-2 sm:w-56 sm:flex-none"
               />
               <button
                 type="button"
                 disabled={filteredCertificates.length === 0}
                 onClick={() => exportCertificates("xlsx")}
-                data-tooltip="Export visible certificates to Excel"
                 className="inline-flex h-10 shrink-0 items-center rounded-full border border-border px-4 text-sm font-medium text-foreground hover:bg-surface-muted disabled:opacity-40"
               >
                 Excel
@@ -896,7 +838,6 @@ export default function EventDetailPage() {
                 type="button"
                 disabled={filteredCertificates.length === 0}
                 onClick={() => exportCertificates("pdf")}
-                data-tooltip="Export visible certificates to PDF"
                 className="inline-flex h-10 shrink-0 items-center rounded-full border border-border px-4 text-sm font-medium text-foreground hover:bg-surface-muted disabled:opacity-40"
               >
                 PDF
@@ -978,7 +919,6 @@ export default function EventDetailPage() {
                             <button
                               type="button"
                               onClick={() => setEditingCertificate(certificate)}
-                              data-tooltip="Edit name, email, place — rebuilds PDF"
                               className="rounded-full border border-border px-3 py-1 text-xs font-medium text-foreground hover:bg-surface-muted"
                             >
                               Edit
@@ -991,7 +931,6 @@ export default function EventDetailPage() {
                                   onClick={() =>
                                     onPreviewCertificate(certificate)
                                   }
-                                  data-tooltip="Preview this certificate PDF"
                                   className="rounded-full border border-border px-3 py-1 text-xs font-medium text-foreground hover:bg-surface-muted disabled:opacity-60"
                                 >
                                   {previewingId === certificate.id
@@ -1002,7 +941,6 @@ export default function EventDetailPage() {
                                   href={certificateDownloadUrl(
                                     certificate.certificateNumber,
                                   )}
-                                  data-tooltip="Download certificate PDF"
                                   className="rounded-full border border-border px-3 py-1 text-xs font-medium text-foreground hover:bg-surface-muted"
                                 >
                                   Download
@@ -1014,11 +952,6 @@ export default function EventDetailPage() {
                               disabled={statusUpdatingId === certificate.id}
                               onClick={() =>
                                 onToggleCertificateStatus(certificate)
-                              }
-                              data-tooltip={
-                                certificate.status === "VALID"
-                                  ? "Revoke this certificate"
-                                  : "Restore this certificate as valid"
                               }
                               className="rounded-full border border-border px-3 py-1 text-xs font-medium text-foreground hover:bg-surface-muted disabled:opacity-60"
                             >
@@ -1072,7 +1005,6 @@ export default function EventDetailPage() {
               <button
                 type="button"
                 onClick={closePreview}
-                data-tooltip="Close preview"
                 className="shrink-0 rounded-full border border-border px-4 py-1.5 text-sm font-medium text-foreground hover:bg-surface-muted"
               >
                 Close

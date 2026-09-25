@@ -928,8 +928,6 @@ export function CertificateDesigner({
           <a
             href="/dashboard"
             className="designer-brand"
-            data-tooltip="Go to dashboard"
-            data-tooltip-pos="bottom"
           >
             <strong>CertiFlow</strong>
             <span>Certificate designer</span>
@@ -937,8 +935,6 @@ export function CertificateDesigner({
           <a
             href="/templates"
             className="designer-file-link"
-            data-tooltip="Back to templates"
-            data-tooltip-pos="bottom"
           >
             Templates
           </a>
@@ -948,8 +944,6 @@ export function CertificateDesigner({
           value={templateName}
           onChange={(e) => onNameChange(e.target.value)}
           aria-label="Template name"
-          data-tooltip="Template display name"
-          data-tooltip-pos="bottom"
         />
         <div className="designer-topbar-right">
           <div className="designer-pro-tools">
@@ -957,8 +951,6 @@ export function CertificateDesigner({
               type="button"
               className="designer-btn ghost"
               disabled={!canUndo}
-              data-tooltip="Undo (Ctrl+Z)"
-              data-tooltip-pos="bottom"
               onClick={undo}
             >
               Undo
@@ -967,8 +959,6 @@ export function CertificateDesigner({
               type="button"
               className="designer-btn ghost"
               disabled={!canRedo}
-              data-tooltip="Redo (Ctrl+Y)"
-              data-tooltip-pos="bottom"
               onClick={redo}
             >
               Redo
@@ -978,8 +968,6 @@ export function CertificateDesigner({
               type="button"
               className="designer-btn ghost"
               disabled={!selected || Boolean(selected.locked)}
-              data-tooltip="Align center horizontally"
-              data-tooltip-pos="bottom"
               onClick={() => alignSelected("centerH")}
             >
               ⌺
@@ -988,8 +976,6 @@ export function CertificateDesigner({
               type="button"
               className="designer-btn ghost"
               disabled={!selected || Boolean(selected.locked)}
-              data-tooltip="Align center vertically"
-              data-tooltip-pos="bottom"
               onClick={() => alignSelected("centerV")}
             >
               ⌻
@@ -998,8 +984,6 @@ export function CertificateDesigner({
               type="button"
               className="designer-btn ghost"
               disabled={!selected}
-              data-tooltip="Bring forward (])"
-              data-tooltip-pos="bottom"
               onClick={() => moveLayer("forward")}
             >
               ↑
@@ -1008,8 +992,6 @@ export function CertificateDesigner({
               type="button"
               className="designer-btn ghost"
               disabled={!selected}
-              data-tooltip="Send backward ([)"
-              data-tooltip-pos="bottom"
               onClick={() => moveLayer("backward")}
             >
               ↓
@@ -1020,8 +1002,6 @@ export function CertificateDesigner({
             className="designer-btn ghost"
             onClick={onPreview}
             disabled={previewing}
-            data-tooltip="Generate a PDF preview"
-            data-tooltip-pos="bottom"
           >
             {previewing ? "Preview..." : "Preview PDF"}
           </button>
@@ -1030,8 +1010,6 @@ export function CertificateDesigner({
             className="designer-btn primary"
             onClick={onSave}
             disabled={saving}
-            data-tooltip="Save this certificate template"
-            data-tooltip-pos="bottom"
           >
             {saving ? "Saving..." : "Save"}
           </button>
@@ -1053,7 +1031,6 @@ export function CertificateDesigner({
               type="button"
               className={`designer-rail-btn ${panel === id ? "active" : ""}`}
               onClick={() => setPanel(id)}
-              data-tooltip={tip}
             >
               <span className="designer-rail-icon" aria-hidden>
                 {icon}
@@ -1076,11 +1053,6 @@ export function CertificateDesigner({
                     key={preset.id}
                     type="button"
                     className={`designer-asset-card ${preset.id === "blank-canvas" ? "is-blank" : ""}`}
-                    data-tooltip={
-                      preset.id === "blank-canvas"
-                        ? "Empty white page — design from scratch"
-                        : `Apply “${preset.name}” layout`
-                    }
                     onClick={() => applyPreset(preset.id)}
                   >
                     <div
@@ -1163,7 +1135,6 @@ export function CertificateDesigner({
                   className="designer-btn primary"
                   style={{ width: "100%", marginTop: 8 }}
                   disabled={uploadingSeal}
-                  data-tooltip="Upload PNG/JPG/SVG — saved permanently for reuse"
                   onClick={() => sealFileRef.current?.click()}
                 >
                   {uploadingSeal ? "Uploading..." : "Upload element"}
@@ -1187,7 +1158,6 @@ export function CertificateDesigner({
                           <button
                             type="button"
                             className="designer-library-thumb"
-                            data-tooltip={`Add “${asset.name}” to canvas`}
                             onClick={() => addLibraryAsset(asset)}
                           >
                             {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -1203,7 +1173,6 @@ export function CertificateDesigner({
                           <button
                             type="button"
                             className="designer-library-delete"
-                            data-tooltip="Remove from library"
                             onClick={() => void onDeleteLibraryAsset(asset)}
                           >
                             ×

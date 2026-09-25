@@ -71,7 +71,6 @@ export function TablePager({
       <div className="flex flex-wrap items-center gap-2">
         <label
           className="flex items-center gap-2 text-muted"
-          data-tooltip="How many rows to show per page"
         >
           Rows
           <select
@@ -92,7 +91,6 @@ export function TablePager({
           type="button"
           disabled={page <= 1}
           onClick={() => onPageChange(page - 1)}
-          data-tooltip="Previous page"
           className="rounded-full border border-border px-3 py-1.5 font-medium text-foreground hover:bg-surface-muted disabled:opacity-40"
         >
           Prev
@@ -104,7 +102,6 @@ export function TablePager({
           type="button"
           disabled={page >= totalPages}
           onClick={() => onPageChange(page + 1)}
-          data-tooltip="Next page"
           className="rounded-full border border-border px-3 py-1.5 font-medium text-foreground hover:bg-surface-muted disabled:opacity-40"
         >
           Next

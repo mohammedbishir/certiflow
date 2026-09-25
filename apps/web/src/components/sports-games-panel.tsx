@@ -221,7 +221,6 @@ export function SportsGamesPanel({ eventId, onCertificatesChanged }: Props) {
           type="button"
           disabled={savingGame}
           onClick={() => void onAddGame()}
-          data-tooltip="Add this game to the sports meet"
           className="inline-flex h-10 items-center justify-center rounded-full bg-accent px-5 text-sm font-medium text-accent-foreground disabled:opacity-60"
         >
           {savingGame ? "Adding..." : "Add game"}
@@ -266,7 +265,6 @@ export function SportsGamesPanel({ eventId, onCertificatesChanged }: Props) {
                       void onDeleteGame(game);
                     }
                   }}
-                  data-tooltip="Delete game"
                   className="rounded-full px-2 py-0.5 text-xs font-medium text-danger hover:bg-danger-soft"
                 >
                   Delete
@@ -396,7 +394,6 @@ export function SportsGamesPanel({ eventId, onCertificatesChanged }: Props) {
                             <button
                               type="button"
                               onClick={() => openEditResult(row)}
-                              data-tooltip="Edit this result / certificate"
                               className="rounded-full border border-border px-3 py-1 text-xs font-medium text-foreground hover:bg-surface-muted"
                             >
                               Edit

@@ -185,11 +185,6 @@ export default function PublicRegisterPage() {
               <button
                 type="submit"
                 disabled={submitting}
-                data-tooltip={
-                  event.kind === "SPORTS_MEET"
-                    ? "Join the sports meet roster"
-                    : "Submit registration and receive your certificate"
-                }
                 className="w-full rounded-full bg-accent px-5 py-2.5 text-sm font-medium text-accent-foreground transition hover:opacity-90 disabled:opacity-60"
               >
                 {submitting
