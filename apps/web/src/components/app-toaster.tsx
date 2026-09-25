@@ -18,7 +18,6 @@ export function AppToaster() {
       theme={theme}
       className="certiflow-toast-container"
       toastClassName="certiflow-toast"
-      bodyClassName="certiflow-toast-body"
     />
   );
 }

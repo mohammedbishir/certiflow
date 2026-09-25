@@ -38,17 +38,16 @@ export type TemplateInput = {
   isActive?: boolean;
 };
 
-function authHeaders(json = true) {
+function authHeaders(json = true): Record<string, string> {
   const token = getAccessToken();
   if (!token) throw new Error("Not authenticated");
-  return json
-    ? {
-        Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json",
-      }
-    : {
-        Authorization: `Bearer ${token}`,
-      };
+  const headers: Record<string, string> = {
+    Authorization: `Bearer ${token}`,
+  };
+  if (json) {
+    headers["Content-Type"] = "application/json";
+  }
+  return headers;
 }
 
 async function parseResponse(response: Response) {
