@@ -26,6 +26,7 @@ export class PublicService {
         date: true,
         location: true,
         status: true,
+        kind: true,
         templateId: true,
         organization: {
           select: {
@@ -56,6 +57,7 @@ export class PublicService {
       description: event.description,
       date: event.date,
       location: event.location,
+      kind: event.kind,
       organizationName: event.organization.name,
       organizationLogo: event.organization.logo,
     };
@@ -68,6 +70,7 @@ export class PublicService {
         id: true,
         name: true,
         status: true,
+        kind: true,
         templateId: true,
       },
     });
@@ -116,6 +119,19 @@ export class PublicService {
         createdAt: true,
       },
     });
+
+    if (event.kind === 'SPORTS_MEET') {
+      return {
+        message:
+          'Registered for the sports meet. Certificates are issued after game results (1st / 2nd / 3rd).',
+        participant,
+        event: {
+          id: event.id,
+          name: event.name,
+        },
+        certificate: null,
+      };
+    }
 
     const certificate = await this.certificatesService.issueForParticipant(
       participant.id,

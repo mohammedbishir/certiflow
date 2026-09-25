@@ -255,6 +255,8 @@ export default function EditTemplatePage() {
       actions={
         <Link
           href="/templates"
+          data-tooltip="Back to templates"
+          data-tooltip-pos="bottom"
           className="inline-flex h-10 items-center rounded-full border border-border bg-surface px-4 text-sm font-medium text-foreground transition hover:bg-surface-muted"
         >
           Back
@@ -309,7 +311,10 @@ export default function EditTemplatePage() {
               “Recipient” is printed, CertiFlow covers it with a white patch.
             </p>
             <div className="mt-3 flex flex-wrap gap-2">
-              <label className="inline-flex cursor-pointer rounded-full bg-accent px-4 py-2 text-sm font-medium text-accent-foreground hover:opacity-90">
+              <label
+                data-tooltip="Upload a designed certificate PDF"
+                className="inline-flex cursor-pointer rounded-full bg-accent px-4 py-2 text-sm font-medium text-accent-foreground hover:opacity-90"
+              >
                 {uploading ? "Uploading..." : "Upload PDF"}
                 <input
                   type="file"
@@ -328,6 +333,7 @@ export default function EditTemplatePage() {
                   type="button"
                   disabled={uploading}
                   onClick={() => void onClearPdf()}
+                  data-tooltip="Remove the uploaded PDF"
                   className="rounded-full border border-border px-4 py-2 text-sm font-medium text-foreground hover:bg-surface-muted disabled:opacity-60"
                 >
                   Remove PDF
@@ -338,6 +344,7 @@ export default function EditTemplatePage() {
                   href={pdfUrl}
                   target="_blank"
                   rel="noreferrer"
+                  data-tooltip="Open the uploaded PDF in a new tab"
                   className="inline-flex items-center text-sm font-medium text-accent hover:underline"
                 >
                   Open PDF
@@ -442,6 +449,7 @@ export default function EditTemplatePage() {
           <button
             type="submit"
             disabled={saving}
+            data-tooltip="Save this certificate template"
             className="rounded-full bg-accent px-5 py-2.5 text-sm font-medium text-accent-foreground disabled:opacity-60"
           >
             {saving ? "Saving..." : "Save template"}
@@ -463,6 +471,11 @@ export default function EditTemplatePage() {
                 type="button"
                 disabled={previewing || !form.templatePdfUrl}
                 onClick={() => void onPreview()}
+                data-tooltip={
+                  form.templatePdfUrl
+                    ? "Generate a sample certificate preview"
+                    : "Upload a PDF first"
+                }
                 className="rounded-full bg-foreground px-4 py-2 text-sm font-medium text-background hover:opacity-90 disabled:opacity-60"
               >
                 {previewing ? "Generating..." : "3. Preview certificate"}

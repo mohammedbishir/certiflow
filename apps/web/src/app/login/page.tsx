@@ -41,7 +41,11 @@ export default function LoginPage() {
 
       <main className="flex flex-1 items-center justify-center px-6 pb-16">
         <div className="w-full max-w-md rounded-2xl border border-border bg-surface p-8 shadow-[var(--shadow)]">
-          <Link href="/" className="text-lg font-semibold tracking-tight text-foreground">
+          <Link
+            href="/"
+            data-tooltip="Back to home"
+            className="text-lg font-semibold tracking-tight text-foreground"
+          >
             CertiFlow
           </Link>
           <h1 className="mt-4 text-3xl font-semibold tracking-tight text-foreground">
@@ -90,6 +94,7 @@ export default function LoginPage() {
             <button
               type="submit"
               disabled={loading}
+              data-tooltip="Sign in to your admin account"
               className="w-full rounded-xl bg-accent px-4 py-2.5 text-sm font-medium text-accent-foreground transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
             >
               {loading ? "Signing in..." : "Sign in"}

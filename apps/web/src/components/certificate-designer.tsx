@@ -24,11 +24,18 @@ import {
   TEMPLATE_PRESETS,
 } from "@/lib/certificate-presets";
 import { DesignIcon } from "@/lib/design-icons";
-import { templateAssetUrl, uploadDesignAsset } from "@/lib/templates";
+import {
+  deleteDesignAsset,
+  listDesignAssets,
+  templateAssetUrl,
+  uploadDesignAsset,
+  type DesignAsset,
+} from "@/lib/templates";
 import { toast } from "react-toastify";
 
 type PanelTab = "templates" | "elements" | "text" | "advanced";
 type ResizeHandle = "nw" | "n" | "ne" | "e" | "se" | "s" | "sw" | "w";
+type DragMode = "move" | "resize" | "rotate";
 
 type Props = {
   design: CertificateDesign;
@@ -65,6 +72,12 @@ function roleLabel(role?: DesignRole) {
       return "MD title";
     case "signature":
       return "Signature";
+    case "gameName":
+      return "Game / event (auto)";
+    case "placement":
+      return "Place 1st/2nd/3rd (auto)";
+    case "teamLabel":
+      return "Team (auto)";
     default:
       return "Text";
   }
@@ -89,6 +102,17 @@ function elSize(el: DesignElement) {
 
 const HANDLES: ResizeHandle[] = ["nw", "n", "ne", "e", "se", "s", "sw", "w"];
 
+function cloneDesign(d: CertificateDesign): CertificateDesign {
+  return JSON.parse(JSON.stringify(d)) as CertificateDesign;
+}
+
+function normalizeAngle(deg: number) {
+  let n = deg % 360;
+  if (n > 180) n -= 360;
+  if (n < -180) n += 360;
+  return Math.round(n);
+}
+
 export function CertificateDesigner({
   design,
   onChange,
@@ -109,14 +133,25 @@ export function CertificateDesigner({
   >("all");
   const [uploadingSig, setUploadingSig] = useState(false);
   const [uploadingSeal, setUploadingSeal] = useState(false);
+  const [libraryAssets, setLibraryAssets] = useState<DesignAsset[]>([]);
+  const [uploadCategory, setUploadCategory] = useState<
+    "seals" | "shapes" | "signatures" | "other"
+  >("seals");
+  const [removeBgOnUpload, setRemoveBgOnUpload] = useState(true);
+  const [canUndo, setCanUndo] = useState(false);
+  const [canRedo, setCanRedo] = useState(false);
   const signatureFileRef = useRef<HTMLInputElement>(null);
   const sealFileRef = useRef<HTMLInputElement>(null);
+  const canvasRef = useRef<HTMLDivElement>(null);
+  const pastRef = useRef<CertificateDesign[]>([]);
+  const futureRef = useRef<CertificateDesign[]>([]);
   const dragRef = useRef<{
-    mode: "move" | "resize";
+    mode: DragMode;
     id: string;
     handle?: ResizeHandle;
     startX: number;
     startY: number;
+    startAngle?: number;
     orig: DesignElement;
   } | null>(null);
 
@@ -127,6 +162,13 @@ export function CertificateDesigner({
     [design.elements],
   );
 
+  const pushHistory = useCallback(() => {
+    pastRef.current = [...pastRef.current.slice(-49), cloneDesign(design)];
+    futureRef.current = [];
+    setCanUndo(true);
+    setCanRedo(false);
+  }, [design]);
+
   const commit = useCallback(
     (elements: DesignElement[]) => {
       onChange({ ...design, elements });
@@ -134,39 +176,49 @@ export function CertificateDesigner({
     [design, onChange],
   );
 
+  const commitWithHistory = useCallback(
+    (elements: DesignElement[]) => {
+      pushHistory();
+      onChange({ ...design, elements });
+    },
+    [design, onChange, pushHistory],
+  );
+
   const updateElement = useCallback(
-    (id: string, patch: Partial<DesignElement>) => {
+    (id: string, patch: Partial<DesignElement>, recordHistory = false) => {
+      if (recordHistory) pushHistory();
       commit(
         design.elements.map((el) => (el.id === id ? { ...el, ...patch } : el)),
       );
     },
-    [commit, design.elements],
+    [commit, design.elements, pushHistory],
   );
 
   const updateByRole = useCallback(
     (role: DesignRole, patch: Partial<DesignElement>) => {
       const el = findByRole(role);
       if (!el) return;
-      updateElement(el.id, patch);
+      updateElement(el.id, patch, true);
     },
     [findByRole, updateElement],
   );
 
   const addElement = useCallback(
     (el: DesignElement) => {
+      pushHistory();
       onChange(normalizeDesign({ ...design, elements: [...design.elements, el] }));
       setSelectedId(el.id);
     },
-    [design, onChange],
+    [design, onChange, pushHistory],
   );
 
   const removeSelected = useCallback(() => {
     if (!selectedId) return;
     const el = design.elements.find((e) => e.id === selectedId);
     if (el?.locked) return;
-    commit(design.elements.filter((e) => e.id !== selectedId));
+    commitWithHistory(design.elements.filter((e) => e.id !== selectedId));
     setSelectedId(null);
-  }, [commit, design.elements, selectedId]);
+  }, [commitWithHistory, design.elements, selectedId]);
 
   const duplicateSelected = useCallback(() => {
     if (!selected) return;
@@ -177,35 +229,172 @@ export function CertificateDesigner({
       y: selected.y + 24,
       locked: false,
     };
-    commit([...design.elements, copy]);
+    commitWithHistory([...design.elements, copy]);
     setSelectedId(copy.id);
-  }, [commit, design.elements, selected]);
+  }, [commitWithHistory, design.elements, selected]);
 
   const toggleLock = useCallback(() => {
     if (!selected) return;
-    updateElement(selected.id, { locked: !selected.locked });
+    updateElement(selected.id, { locked: !selected.locked }, true);
   }, [selected, updateElement]);
+
+  const undo = useCallback(() => {
+    const prev = pastRef.current.pop();
+    if (!prev) return;
+    futureRef.current.push(cloneDesign(design));
+    setCanUndo(pastRef.current.length > 0);
+    setCanRedo(true);
+    onChange(prev);
+  }, [design, onChange]);
+
+  const redo = useCallback(() => {
+    const next = futureRef.current.pop();
+    if (!next) return;
+    pastRef.current.push(cloneDesign(design));
+    setCanUndo(true);
+    setCanRedo(futureRef.current.length > 0);
+    onChange(next);
+  }, [design, onChange]);
+
+  const moveLayer = useCallback(
+    (direction: "front" | "back" | "forward" | "backward") => {
+      if (!selectedId) return;
+      const idx = design.elements.findIndex((e) => e.id === selectedId);
+      if (idx < 0) return;
+      const next = [...design.elements];
+      const [item] = next.splice(idx, 1);
+      if (direction === "front") next.push(item);
+      else if (direction === "back") next.unshift(item);
+      else if (direction === "forward") {
+        next.splice(Math.min(idx + 1, next.length), 0, item);
+      } else {
+        next.splice(Math.max(idx - 1, 0), 0, item);
+      }
+      commitWithHistory(next);
+    },
+    [commitWithHistory, design.elements, selectedId],
+  );
+
+  const alignSelected = useCallback(
+    (mode: "left" | "centerH" | "right" | "top" | "centerV" | "bottom") => {
+      if (!selected || selected.locked) return;
+      const { w, h } = elSize(selected);
+      const canvasW = design.width;
+      const canvasH = design.height;
+      let x = selected.x;
+      let y = selected.y;
+      if (mode === "left") x = 40;
+      if (mode === "centerH") x = Math.round((canvasW - w) / 2);
+      if (mode === "right") x = canvasW - w - 40;
+      if (mode === "top") y = 40;
+      if (mode === "centerV") y = Math.round((canvasH - h) / 2);
+      if (mode === "bottom") y = canvasH - h - 40;
+      updateElement(selected.id, { x, y }, true);
+    },
+    [design.height, design.width, selected, updateElement],
+  );
+
+  useEffect(() => {
+    void listDesignAssets()
+      .then(setLibraryAssets)
+      .catch(() => {
+        // Library is optional until first upload.
+      });
+  }, []);
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
+      const inField =
+        e.target instanceof HTMLInputElement ||
+        e.target instanceof HTMLTextAreaElement ||
+        e.target instanceof HTMLSelectElement;
+
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "z" && !e.shiftKey) {
+        e.preventDefault();
+        undo();
+        return;
+      }
+      if (
+        (e.ctrlKey || e.metaKey) &&
+        (e.key.toLowerCase() === "y" ||
+          (e.key.toLowerCase() === "z" && e.shiftKey))
+      ) {
+        e.preventDefault();
+        redo();
+        return;
+      }
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "d" && !inField) {
+        e.preventDefault();
+        duplicateSelected();
+        return;
+      }
       if (
         (e.key === "Delete" || e.key === "Backspace") &&
         selectedId &&
-        !(e.target instanceof HTMLInputElement) &&
-        !(e.target instanceof HTMLTextAreaElement)
+        !inField
       ) {
         e.preventDefault();
         removeSelected();
+        return;
+      }
+      if (!selectedId || inField || selected?.locked) return;
+
+      if (e.key === "[") {
+        e.preventDefault();
+        moveLayer(e.shiftKey ? "back" : "backward");
+      }
+      if (e.key === "]") {
+        e.preventDefault();
+        moveLayer(e.shiftKey ? "front" : "forward");
+      }
+      if (e.key === "r" || e.key === "R") {
+        e.preventDefault();
+        const step = e.shiftKey ? -15 : 15;
+        updateElement(
+          selectedId,
+          {
+            rotation: normalizeAngle((selected?.rotation ?? 0) + step),
+          },
+          true,
+        );
+      }
+      if (
+        ["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(e.key)
+      ) {
+        e.preventDefault();
+        const step = e.shiftKey ? 10 : 1;
+        const dx =
+          e.key === "ArrowLeft" ? -step : e.key === "ArrowRight" ? step : 0;
+        const dy =
+          e.key === "ArrowUp" ? -step : e.key === "ArrowDown" ? step : 0;
+        updateElement(
+          selectedId,
+          {
+            x: (selected?.x ?? 0) + dx,
+            y: (selected?.y ?? 0) + dy,
+          },
+          true,
+        );
       }
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [removeSelected, selectedId]);
+  }, [
+    duplicateSelected,
+    moveLayer,
+    redo,
+    removeSelected,
+    selected,
+    selectedId,
+    undo,
+    updateElement,
+  ]);
 
   function startMove(e: ReactPointerEvent, el: DesignElement) {
     e.stopPropagation();
     setSelectedId(el.id);
     if (el.locked) return;
+    pushHistory();
     (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
     dragRef.current = {
       mode: "move",
@@ -225,6 +414,7 @@ export function CertificateDesigner({
     e.preventDefault();
     if (el.locked) return;
     setSelectedId(el.id);
+    pushHistory();
     (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
     dragRef.current = {
       mode: "resize",
@@ -232,6 +422,29 @@ export function CertificateDesigner({
       handle,
       startX: e.clientX,
       startY: e.clientY,
+      orig: { ...el },
+    };
+  }
+
+  function startRotate(e: ReactPointerEvent, el: DesignElement) {
+    e.stopPropagation();
+    e.preventDefault();
+    if (el.locked) return;
+    setSelectedId(el.id);
+    pushHistory();
+    const { w, h } = elSize(el);
+    const rect = canvasRef.current?.getBoundingClientRect();
+    const cx = (rect?.left ?? 0) + (el.x + w / 2) * zoom;
+    const cy = (rect?.top ?? 0) + (el.y + h / 2) * zoom;
+    const startAngle =
+      (Math.atan2(e.clientY - cy, e.clientX - cx) * 180) / Math.PI;
+    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+    dragRef.current = {
+      mode: "rotate",
+      id: el.id,
+      startX: e.clientX,
+      startY: e.clientY,
+      startAngle,
       orig: { ...el },
     };
   }
@@ -249,6 +462,19 @@ export function CertificateDesigner({
         x: Math.round(o.x + dx),
         y: Math.round(o.y + dy),
       });
+      return;
+    }
+
+    if (drag.mode === "rotate") {
+      const { w, h } = elSize(o);
+      const rect = canvasRef.current?.getBoundingClientRect();
+      const cx = (rect?.left ?? 0) + (o.x + w / 2) * zoom;
+      const cy = (rect?.top ?? 0) + (o.y + h / 2) * zoom;
+      const angle =
+        (Math.atan2(e.clientY - cy, e.clientX - cx) * 180) / Math.PI;
+      let next = (o.rotation ?? 0) + (angle - (drag.startAngle ?? 0));
+      if (e.shiftKey) next = Math.round(next / 15) * 15;
+      updateElement(drag.id, { rotation: normalizeAngle(next) });
       return;
     }
 
@@ -310,19 +536,32 @@ export function CertificateDesigner({
     if (el.role === "organizationName") return el.text || "Your Organization";
     if (el.role === "date") return new Date().toLocaleDateString();
     if (el.role === "certificateNumber") return "CERT-PREVIEW";
+    if (el.role === "gameName") return el.text || "100m Relay — Men";
+    if (el.role === "placement") return el.text || "1st Place";
+    if (el.role === "teamLabel") return el.text || "Team A";
     return el.text ?? "";
   }
 
   function applyPreset(id: string) {
     const preset = TEMPLATE_PRESETS.find((p) => p.id === id);
     if (!preset) return;
-    const next = applyOrgBrandingToDesign(
-      normalizeDesign(preset.create()),
-      orgBranding,
-    );
+    pushHistory();
+    const base = normalizeDesign(preset.create());
+    const next =
+      id === "blank-canvas"
+        ? base
+        : applyOrgBrandingToDesign(base, orgBranding);
     onChange(next);
     setSelectedId(null);
-    onNameChange(preset.name);
+    onNameChange(
+      id === "blank-canvas" ? "Untitled certificate" : preset.name,
+    );
+    if (id === "blank-canvas") {
+      toast.info(
+        "Blank canvas ready — use Text / Elements to build from scratch. Add a Name field so certificates show the participant.",
+      );
+      setPanel("text");
+    }
   }
 
   function applyOrgBranding(force = true) {
@@ -330,6 +569,7 @@ export function CertificateDesigner({
       toast.info("Set logo and signer in Organization settings first");
       return;
     }
+    pushHistory();
     onChange(applyOrgBrandingToDesign(design, orgBranding, { force }));
     toast.success("Organization branding applied — delete any piece you don’t need");
   }
@@ -411,6 +651,7 @@ export function CertificateDesigner({
       );
     }
     if (extras.length) {
+      pushHistory();
       onChange(
         normalizeDesign({ ...design, elements: [...design.elements, ...extras] }),
       );
@@ -419,13 +660,26 @@ export function CertificateDesigner({
     setPanel("advanced");
   }
 
+  async function refreshLibrary() {
+    try {
+      setLibraryAssets(await listDesignAssets());
+    } catch {
+      // ignore
+    }
+  }
+
   async function onSealFile(file: File | null) {
     if (!file) return;
     try {
       setUploadingSeal(true);
-      const result = await uploadDesignAsset(file);
+      const result = await uploadDesignAsset(file, {
+        name: file.name.replace(/\.[^.]+$/, ""),
+        category: uploadCategory,
+        removeBg: removeBgOnUpload && uploadCategory !== "signatures",
+      });
+      await refreshLibrary();
       const imageEl: DesignElement = {
-        id: uid("seal-upload"),
+        id: uid("asset"),
         type: "image",
         src: result.url,
         x: DESIGN_CANVAS.width / 2 - 60,
@@ -433,6 +687,7 @@ export function CertificateDesigner({
         width: 120,
         height: 120,
       };
+      pushHistory();
       onChange(
         normalizeDesign({
           ...design,
@@ -440,13 +695,48 @@ export function CertificateDesigner({
         }),
       );
       setSelectedId(imageEl.id);
-      setElementFilter("seals");
-      toast.success("Seal added — drag or resize on canvas");
+      setElementFilter(
+        uploadCategory === "shapes"
+          ? "shapes"
+          : uploadCategory === "seals"
+            ? "seals"
+            : "all",
+      );
+      toast.success(
+        removeBgOnUpload
+          ? "Saved to your library (background removed)"
+          : "Saved to your library — available anytime",
+      );
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Seal upload failed");
+      toast.error(err instanceof Error ? err.message : "Upload failed");
     } finally {
       setUploadingSeal(false);
       if (sealFileRef.current) sealFileRef.current.value = "";
+    }
+  }
+
+  function addLibraryAsset(asset: DesignAsset) {
+    const imageEl: DesignElement = {
+      id: uid("asset"),
+      type: "image",
+      src: asset.url,
+      x: DESIGN_CANVAS.width / 2 - 60,
+      y: DESIGN_CANVAS.height / 2 - 60,
+      width: 120,
+      height: 120,
+      role: asset.category === "signatures" ? "signature" : undefined,
+    };
+    addElement(imageEl);
+    toast.success(`Added “${asset.name}” to canvas`);
+  }
+
+  async function onDeleteLibraryAsset(asset: DesignAsset) {
+    try {
+      await deleteDesignAsset(asset.id);
+      setLibraryAssets((prev) => prev.filter((a) => a.id !== asset.id));
+      toast.success("Removed from library");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Delete failed");
     }
   }
 
@@ -454,7 +744,12 @@ export function CertificateDesigner({
     if (!file) return;
     try {
       setUploadingSig(true);
-      const result = await uploadDesignAsset(file);
+      const result = await uploadDesignAsset(file, {
+        name: file.name.replace(/\.[^.]+$/, "") || "Signature",
+        category: "signatures",
+        removeBg: false,
+      });
+      await refreshLibrary();
       const src = result.url;
       const existingImage = design.elements.find(
         (e) => e.type === "image" && e.role === "signature",
@@ -462,7 +757,7 @@ export function CertificateDesigner({
       const textSig = findByRole("signature");
 
       if (existingImage) {
-        updateElement(existingImage.id, { src });
+        updateElement(existingImage.id, { src }, true);
         setSelectedId(existingImage.id);
       } else {
         const imageEl: DesignElement = {
@@ -479,6 +774,7 @@ export function CertificateDesigner({
         const withoutTextSig = textSig
           ? design.elements.filter((e) => e.id !== textSig.id)
           : design.elements;
+        pushHistory();
         onChange(
           normalizeDesign({
             ...design,
@@ -487,7 +783,7 @@ export function CertificateDesigner({
         );
         setSelectedId(imageEl.id);
       }
-      toast.success("Signature image added — drag or resize on canvas");
+      toast.success("Signature saved to library and added to canvas");
       setPanel("advanced");
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Upload failed");
@@ -502,7 +798,7 @@ export function CertificateDesigner({
       (e) => e.type === "image" && e.role === "signature",
     );
     if (!img) return;
-    commit(design.elements.filter((e) => e.id !== img.id));
+    commitWithHistory(design.elements.filter((e) => e.id !== img.id));
     if (selectedId === img.id) setSelectedId(null);
   }
 
@@ -629,11 +925,21 @@ export function CertificateDesigner({
     <div className="designer-root">
       <header className="designer-topbar">
         <div className="designer-topbar-left">
-          <a href="/dashboard" className="designer-brand">
+          <a
+            href="/dashboard"
+            className="designer-brand"
+            data-tooltip="Go to dashboard"
+            data-tooltip-pos="bottom"
+          >
             <strong>CertiFlow</strong>
             <span>Certificate designer</span>
           </a>
-          <a href="/templates" className="designer-file-link">
+          <a
+            href="/templates"
+            className="designer-file-link"
+            data-tooltip="Back to templates"
+            data-tooltip-pos="bottom"
+          >
             Templates
           </a>
         </div>
@@ -642,13 +948,80 @@ export function CertificateDesigner({
           value={templateName}
           onChange={(e) => onNameChange(e.target.value)}
           aria-label="Template name"
+          data-tooltip="Template display name"
+          data-tooltip-pos="bottom"
         />
         <div className="designer-topbar-right">
+          <div className="designer-pro-tools">
+            <button
+              type="button"
+              className="designer-btn ghost"
+              disabled={!canUndo}
+              data-tooltip="Undo (Ctrl+Z)"
+              data-tooltip-pos="bottom"
+              onClick={undo}
+            >
+              Undo
+            </button>
+            <button
+              type="button"
+              className="designer-btn ghost"
+              disabled={!canRedo}
+              data-tooltip="Redo (Ctrl+Y)"
+              data-tooltip-pos="bottom"
+              onClick={redo}
+            >
+              Redo
+            </button>
+            <span className="designer-dot" aria-hidden />
+            <button
+              type="button"
+              className="designer-btn ghost"
+              disabled={!selected || Boolean(selected.locked)}
+              data-tooltip="Align center horizontally"
+              data-tooltip-pos="bottom"
+              onClick={() => alignSelected("centerH")}
+            >
+              ⌺
+            </button>
+            <button
+              type="button"
+              className="designer-btn ghost"
+              disabled={!selected || Boolean(selected.locked)}
+              data-tooltip="Align center vertically"
+              data-tooltip-pos="bottom"
+              onClick={() => alignSelected("centerV")}
+            >
+              ⌻
+            </button>
+            <button
+              type="button"
+              className="designer-btn ghost"
+              disabled={!selected}
+              data-tooltip="Bring forward (])"
+              data-tooltip-pos="bottom"
+              onClick={() => moveLayer("forward")}
+            >
+              ↑
+            </button>
+            <button
+              type="button"
+              className="designer-btn ghost"
+              disabled={!selected}
+              data-tooltip="Send backward ([)"
+              data-tooltip-pos="bottom"
+              onClick={() => moveLayer("backward")}
+            >
+              ↓
+            </button>
+          </div>
           <button
             type="button"
             className="designer-btn ghost"
             onClick={onPreview}
             disabled={previewing}
+            data-tooltip="Generate a PDF preview"
+            data-tooltip-pos="bottom"
           >
             {previewing ? "Preview..." : "Preview PDF"}
           </button>
@@ -657,6 +1030,8 @@ export function CertificateDesigner({
             className="designer-btn primary"
             onClick={onSave}
             disabled={saving}
+            data-tooltip="Save this certificate template"
+            data-tooltip-pos="bottom"
           >
             {saving ? "Saving..." : "Save"}
           </button>
@@ -667,17 +1042,18 @@ export function CertificateDesigner({
         <aside className="designer-rail">
           {(
             [
-              ["templates", "Design", "▣"],
-              ["elements", "Elements", "◇"],
-              ["text", "Text", "T"],
-              ["advanced", "Advanced", "✦"],
+              ["templates", "Design", "▣", "Browse ready-made layouts"],
+              ["elements", "Elements", "◇", "Add shapes, images, and lines"],
+              ["text", "Text", "T", "Add and style text fields"],
+              ["advanced", "Advanced", "✦", "Page size and advanced options"],
             ] as const
-          ).map(([id, label, icon]) => (
+          ).map(([id, label, icon, tip]) => (
             <button
               key={id}
               type="button"
               className={`designer-rail-btn ${panel === id ? "active" : ""}`}
               onClick={() => setPanel(id)}
+              data-tooltip={tip}
             >
               <span className="designer-rail-icon" aria-hidden>
                 {icon}
@@ -692,22 +1068,31 @@ export function CertificateDesigner({
             <>
               <h2 className="designer-panel-title">Design templates</h2>
               <p className="designer-panel-hint">
-                Every piece is an element — drag, resize, or replace freely.
+                Start blank, or pick a ready layout — every piece stays editable.
               </p>
               <div className="designer-template-list">
                 {DEFAULT_TEMPLATE_DEFS.map((preset) => (
                   <button
                     key={preset.id}
                     type="button"
-                    className="designer-asset-card"
+                    className={`designer-asset-card ${preset.id === "blank-canvas" ? "is-blank" : ""}`}
+                    data-tooltip={
+                      preset.id === "blank-canvas"
+                        ? "Empty white page — design from scratch"
+                        : `Apply “${preset.name}” layout`
+                    }
                     onClick={() => applyPreset(preset.id)}
                   >
                     <div
-                      className="designer-thumb"
-                      style={{
-                        background: `linear-gradient(135deg, ${preset.thumb.bg} 55%, ${preset.thumb.accent} 55%)`,
-                        border: `2px solid ${preset.thumb.border}`,
-                      }}
+                      className={`designer-thumb ${preset.id === "blank-canvas" ? "blank" : ""}`}
+                      style={
+                        preset.id === "blank-canvas"
+                          ? undefined
+                          : {
+                              background: `linear-gradient(135deg, ${preset.thumb.bg} 55%, ${preset.thumb.accent} 55%)`,
+                              border: `2px solid ${preset.thumb.border}`,
+                            }
+                      }
                     />
                     <span>{preset.name}</span>
                     <small>{preset.description}</small>
@@ -731,25 +1116,104 @@ export function CertificateDesigner({
             <>
               <h2 className="designer-panel-title">Elements</h2>
               <p className="designer-panel-hint">
-                Built-in seals, or upload your own PNG / SVG seal.
+                Upload seals or shapes to your library — saved for this
+                organization and reusable anytime.
               </p>
 
-              <input
-                ref={sealFileRef}
-                type="file"
-                accept="image/png,image/jpeg,image/webp,image/svg+xml,.svg"
-                hidden
-                onChange={(e) => onSealFile(e.target.files?.[0] ?? null)}
-              />
-              <button
-                type="button"
-                className="designer-btn primary"
-                style={{ width: "100%", marginBottom: 12 }}
-                disabled={uploadingSeal}
-                onClick={() => sealFileRef.current?.click()}
-              >
-                {uploadingSeal ? "Uploading..." : "Upload seal (PNG / SVG)"}
-              </button>
+              <div className="designer-props" style={{ marginTop: 0, paddingTop: 0, borderTop: "none" }}>
+                <p className="designer-props-label">Upload to library</p>
+                <label className="designer-field">
+                  Category
+                  <select
+                    value={uploadCategory}
+                    onChange={(e) =>
+                      setUploadCategory(
+                        e.target.value as
+                          | "seals"
+                          | "shapes"
+                          | "signatures"
+                          | "other",
+                      )
+                    }
+                  >
+                    <option value="seals">Seal</option>
+                    <option value="shapes">Shape</option>
+                    <option value="signatures">Signature</option>
+                    <option value="other">Other</option>
+                  </select>
+                </label>
+                <label className="designer-check">
+                  <input
+                    type="checkbox"
+                    checked={removeBgOnUpload}
+                    onChange={(e) => setRemoveBgOnUpload(e.target.checked)}
+                    disabled={uploadCategory === "signatures"}
+                  />
+                  Remove background (shape / seal only)
+                </label>
+                <input
+                  ref={sealFileRef}
+                  type="file"
+                  accept="image/png,image/jpeg,image/webp,image/svg+xml,.svg"
+                  hidden
+                  onChange={(e) => onSealFile(e.target.files?.[0] ?? null)}
+                />
+                <button
+                  type="button"
+                  className="designer-btn primary"
+                  style={{ width: "100%", marginTop: 8 }}
+                  disabled={uploadingSeal}
+                  data-tooltip="Upload PNG/JPG/SVG — saved permanently for reuse"
+                  onClick={() => sealFileRef.current?.click()}
+                >
+                  {uploadingSeal ? "Uploading..." : "Upload element"}
+                </button>
+              </div>
+
+              <div className="designer-props">
+                <p className="designer-props-label">
+                  My uploads · {libraryAssets.length}
+                </p>
+                {libraryAssets.length === 0 ? (
+                  <p className="designer-panel-hint">
+                    No saved uploads yet. Upload a seal or shape above.
+                  </p>
+                ) : (
+                  <div className="designer-library-grid">
+                    {libraryAssets.map((asset) => {
+                      const url = templateAssetUrl(asset.url) ?? asset.url;
+                      return (
+                        <div key={asset.id} className="designer-library-card">
+                          <button
+                            type="button"
+                            className="designer-library-thumb"
+                            data-tooltip={`Add “${asset.name}” to canvas`}
+                            onClick={() => addLibraryAsset(asset)}
+                          >
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img src={url} alt={asset.name} />
+                          </button>
+                          <div className="designer-library-meta">
+                            <span title={asset.name}>{asset.name}</span>
+                            <small>
+                              {asset.category}
+                              {asset.removeBg ? " · no bg" : ""}
+                            </small>
+                          </div>
+                          <button
+                            type="button"
+                            className="designer-library-delete"
+                            data-tooltip="Remove from library"
+                            onClick={() => void onDeleteLibraryAsset(asset)}
+                          >
+                            ×
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
 
               <div className="designer-chip-row">
                 {(
@@ -806,6 +1270,9 @@ export function CertificateDesigner({
                   </button>
                 </div>
               )}
+              <p className="designer-props-label" style={{ marginTop: 8 }}>
+                Built-in icons
+              </p>
               <div className="designer-icon-grid">
                 {filteredIcons.map((icon) => (
                   <button
@@ -893,6 +1360,50 @@ export function CertificateDesigner({
                 >
                   Add name field
                 </button>
+                <button
+                  type="button"
+                  className="designer-asset-tile"
+                  onClick={() =>
+                    addElement({
+                      id: uid("game"),
+                      type: "text",
+                      x: 300,
+                      y: 480,
+                      width: 520,
+                      height: 28,
+                      text: "100m Relay — Men",
+                      fontSize: 16,
+                      color: "#111827",
+                      align: "center",
+                      bold: true,
+                      role: "gameName",
+                    })
+                  }
+                >
+                  Add game name
+                </button>
+                <button
+                  type="button"
+                  className="designer-asset-tile"
+                  onClick={() =>
+                    addElement({
+                      id: uid("place"),
+                      type: "text",
+                      x: 300,
+                      y: 250,
+                      width: 520,
+                      height: 36,
+                      text: "1st Place",
+                      fontSize: 22,
+                      color: "#c9a227",
+                      align: "center",
+                      bold: true,
+                      role: "placement",
+                    })
+                  }
+                >
+                  Add place (1st/2nd/3rd)
+                </button>
               </div>
 
               {selected?.type === "text" ? (
@@ -910,9 +1421,32 @@ export function CertificateDesigner({
                         selected.role === "eventName" ||
                         selected.role === "date"
                       }
-                      onChange={(e) =>
-                        updateElement(selected.id, { text: e.target.value })
-                      }
+                      onChange={(e) => {
+                        const text = e.target.value;
+                        const width = selected.width ?? 420;
+                        const fontSize = selected.fontSize ?? 14;
+                        const avgCharW = fontSize * 0.52;
+                        const charsPerLine = Math.max(
+                          12,
+                          Math.floor(width / avgCharW),
+                        );
+                        const lines = Math.max(
+                          1,
+                          Math.ceil(text.length / charsPerLine),
+                        );
+                        const lineHeight = fontSize * 1.35 + 4;
+                        const neededH = Math.ceil(
+                          Math.max(fontSize * 1.55, lines * lineHeight + 8),
+                        );
+                        updateElement(
+                          selected.id,
+                          {
+                            text,
+                            height: Math.max(selected.height ?? 0, neededH),
+                          },
+                          true,
+                        );
+                      }}
                     />
                   </label>
                   <label className="designer-field">
@@ -923,9 +1457,11 @@ export function CertificateDesigner({
                       max={96}
                       value={selected.fontSize ?? 16}
                       onChange={(e) =>
-                        updateElement(selected.id, {
-                          fontSize: Number(e.target.value),
-                        })
+                        updateElement(
+                          selected.id,
+                          { fontSize: Number(e.target.value) },
+                          true,
+                        )
                       }
                     />
                   </label>
@@ -935,7 +1471,7 @@ export function CertificateDesigner({
                       type="color"
                       value={selected.color ?? "#111111"}
                       onChange={(e) =>
-                        updateElement(selected.id, { color: e.target.value })
+                        updateElement(selected.id, { color: e.target.value }, true)
                       }
                     />
                   </label>
@@ -944,12 +1480,16 @@ export function CertificateDesigner({
                     <select
                       value={selected.fontStyle ?? "sans"}
                       onChange={(e) =>
-                        updateElement(selected.id, {
-                          fontStyle: e.target.value as
-                            | "serif"
-                            | "sans"
-                            | "script",
-                        })
+                        updateElement(
+                          selected.id,
+                          {
+                            fontStyle: e.target.value as
+                              | "serif"
+                              | "sans"
+                              | "script",
+                          },
+                          true,
+                        )
                       }
                     >
                       <option value="sans">Sans</option>
@@ -958,9 +1498,158 @@ export function CertificateDesigner({
                     </select>
                   </label>
                 </div>
+              ) : null}
+
+              {selected ? (
+                <div className="designer-props">
+                  <p className="designer-props-label">
+                    Transform · {selected.type}
+                  </p>
+                  <div className="designer-field-row">
+                    <label className="designer-field">
+                      X
+                      <input
+                        type="number"
+                        value={Math.round(selected.x)}
+                        disabled={Boolean(selected.locked)}
+                        onChange={(e) =>
+                          updateElement(
+                            selected.id,
+                            { x: Number(e.target.value) },
+                            true,
+                          )
+                        }
+                      />
+                    </label>
+                    <label className="designer-field">
+                      Y
+                      <input
+                        type="number"
+                        value={Math.round(selected.y)}
+                        disabled={Boolean(selected.locked)}
+                        onChange={(e) =>
+                          updateElement(
+                            selected.id,
+                            { y: Number(e.target.value) },
+                            true,
+                          )
+                        }
+                      />
+                    </label>
+                  </div>
+                  <div className="designer-field-row">
+                    <label className="designer-field">
+                      W
+                      <input
+                        type="number"
+                        min={8}
+                        value={Math.round(elSize(selected).w)}
+                        disabled={Boolean(selected.locked)}
+                        onChange={(e) =>
+                          updateElement(
+                            selected.id,
+                            { width: Number(e.target.value) },
+                            true,
+                          )
+                        }
+                      />
+                    </label>
+                    <label className="designer-field">
+                      H
+                      <input
+                        type="number"
+                        min={8}
+                        value={Math.round(elSize(selected).h)}
+                        disabled={Boolean(selected.locked)}
+                        onChange={(e) =>
+                          updateElement(
+                            selected.id,
+                            { height: Number(e.target.value) },
+                            true,
+                          )
+                        }
+                      />
+                    </label>
+                  </div>
+                  <label className="designer-field">
+                    Rotation · {selected.rotation ?? 0}°
+                    <input
+                      type="range"
+                      min={-180}
+                      max={180}
+                      step={1}
+                      value={selected.rotation ?? 0}
+                      disabled={Boolean(selected.locked)}
+                      onPointerDown={() => pushHistory()}
+                      onChange={(e) =>
+                        updateElement(selected.id, {
+                          rotation: Number(e.target.value),
+                        })
+                      }
+                    />
+                  </label>
+                  <label className="designer-field">
+                    Opacity · {Math.round((selected.opacity ?? 1) * 100)}%
+                    <input
+                      type="range"
+                      min={10}
+                      max={100}
+                      step={1}
+                      value={Math.round((selected.opacity ?? 1) * 100)}
+                      disabled={Boolean(selected.locked)}
+                      onPointerDown={() => pushHistory()}
+                      onChange={(e) =>
+                        updateElement(selected.id, {
+                          opacity: Number(e.target.value) / 100,
+                        })
+                      }
+                    />
+                  </label>
+                  <div className="designer-chip-row" style={{ marginTop: 8 }}>
+                    <button
+                      type="button"
+                      className="designer-chip"
+                      disabled={Boolean(selected.locked)}
+                      onClick={() => alignSelected("left")}
+                    >
+                      Left
+                    </button>
+                    <button
+                      type="button"
+                      className="designer-chip"
+                      disabled={Boolean(selected.locked)}
+                      onClick={() => alignSelected("centerH")}
+                    >
+                      Center
+                    </button>
+                    <button
+                      type="button"
+                      className="designer-chip"
+                      disabled={Boolean(selected.locked)}
+                      onClick={() => alignSelected("right")}
+                    >
+                      Right
+                    </button>
+                    <button
+                      type="button"
+                      className="designer-chip"
+                      onClick={() => moveLayer("front")}
+                    >
+                      Front
+                    </button>
+                    <button
+                      type="button"
+                      className="designer-chip"
+                      onClick={() => moveLayer("back")}
+                    >
+                      Back
+                    </button>
+                  </div>
+                </div>
               ) : (
                 <p className="designer-panel-hint">
-                  Select any element on the canvas to edit it.
+                  Select any element on the canvas to edit transform, rotation,
+                  and opacity.
                 </p>
               )}
             </>
@@ -1087,6 +1776,7 @@ export function CertificateDesigner({
             onPointerDown={() => setSelectedId(null)}
           >
             <div
+              ref={canvasRef}
               className="designer-canvas"
               style={{
                 width: design.width,
@@ -1100,6 +1790,7 @@ export function CertificateDesigner({
               {design.elements.map((el) => {
                 const { w, h } = elSize(el);
                 const isSelected = selectedId === el.id;
+                const rotation = el.rotation ?? 0;
                 return (
                   <div
                     key={el.id}
@@ -1109,6 +1800,9 @@ export function CertificateDesigner({
                       top: el.y,
                       width: w,
                       height: h,
+                      opacity: el.opacity ?? 1,
+                      transform: rotation ? `rotate(${rotation}deg)` : undefined,
+                      zIndex: isSelected ? 20 : undefined,
                     }}
                     onPointerDown={(e) => startMove(e, el)}
                   >
@@ -1118,6 +1812,9 @@ export function CertificateDesigner({
                       <>
                         <div
                           className="designer-el-toolbar"
+                          style={{
+                            transform: `translateX(-50%) rotate(${-rotation}deg)`,
+                          }}
                           onPointerDown={(e) => e.stopPropagation()}
                         >
                           <button
@@ -1129,11 +1826,36 @@ export function CertificateDesigner({
                           </button>
                           <button
                             type="button"
-                            title="Duplicate"
+                            title="Duplicate (Ctrl+D)"
                             onClick={duplicateSelected}
                             disabled={Boolean(el.locked)}
                           >
                             Copy
+                          </button>
+                          <button
+                            type="button"
+                            title="Rotate +15° (R)"
+                            disabled={Boolean(el.locked)}
+                            onClick={() =>
+                              updateElement(
+                                el.id,
+                                {
+                                  rotation: normalizeAngle(
+                                    (el.rotation ?? 0) + 15,
+                                  ),
+                                },
+                                true,
+                              )
+                            }
+                          >
+                            ↻
+                          </button>
+                          <button
+                            type="button"
+                            title="Bring to front"
+                            onClick={() => moveLayer("front")}
+                          >
+                            Front
                           </button>
                           <button
                             type="button"
@@ -1144,8 +1866,9 @@ export function CertificateDesigner({
                             Delete
                           </button>
                         </div>
-                        {!el.locked
-                          ? HANDLES.map((handle) => (
+                        {!el.locked ? (
+                          <>
+                            {HANDLES.map((handle) => (
                               <span
                                 key={handle}
                                 className={`designer-handle designer-handle-${handle}`}
@@ -1153,8 +1876,15 @@ export function CertificateDesigner({
                                   startResize(e, el, handle)
                                 }
                               />
-                            ))
-                          : null}
+                            ))}
+                            <span
+                              className="designer-rotate-handle"
+                              title="Drag to rotate · Shift snaps 15°"
+                              onPointerDown={(e) => startRotate(e, el)}
+                            />
+                            <span className="designer-rotate-stem" aria-hidden />
+                          </>
+                        ) : null}
                       </>
                     ) : null}
                   </div>
@@ -1165,8 +1895,8 @@ export function CertificateDesigner({
 
           <footer className="designer-footer">
             <span className="designer-footer-hint">
-              Click any element · Drag to move · Corner/side handles to scale ·
-              Lock / Copy / Delete on selection
+              Drag · Resize · Rotate handle · Undo/Redo · [ ] layers · R rotate ·
+              Arrows nudge · Shift+R −15°
             </span>
             <div className="designer-zoom">
               <button

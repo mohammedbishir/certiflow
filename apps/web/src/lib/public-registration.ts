@@ -6,6 +6,7 @@ export type PublicEvent = {
   description: string | null;
   date: string;
   location: string | null;
+  kind?: "WORKSHOP" | "SPORTS_MEET";
   organizationName: string;
   organizationLogo: string | null;
 };
@@ -66,6 +67,6 @@ export async function registerParticipant(token: string, input: RegisterInput) {
     certificate: {
       certificateNumber: string;
       downloadUrl: string;
-    };
+    } | null;
   };
 }

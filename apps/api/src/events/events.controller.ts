@@ -15,8 +15,10 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard.js';
 import { RolesGuard } from '../auth/guards/roles.guard.js';
 import type { AuthUser } from '../auth/types/auth-user.type.js';
 import { CreateEventDto } from './dto/create-event.dto.js';
+import { CreateGameDto } from './dto/create-game.dto.js';
 import { ImportParticipantsDto } from './dto/import-participants.dto.js';
 import { UpdateEventDto } from './dto/update-event.dto.js';
+import { UpsertGameResultDto } from './dto/upsert-game-result.dto.js';
 import { EventsService } from './events.service.js';
 
 @Controller('events')
@@ -44,6 +46,74 @@ export class EventsController {
     return this.eventsService.importParticipantsCsv(
       user.organizationId,
       id,
+      dto.csv,
+    );
+  }
+
+  @Get(':id/games')
+  listGames(@CurrentUser() user: AuthUser, @Param('id') id: string) {
+    return this.eventsService.listGames(user.organizationId, id);
+  }
+
+  @Post(':id/games')
+  @Roles(UserRole.ADMIN)
+  createGame(
+    @CurrentUser() user: AuthUser,
+    @Param('id') id: string,
+    @Body() dto: CreateGameDto,
+  ) {
+    return this.eventsService.createGame(user.organizationId, id, dto);
+  }
+
+  @Patch(':id/games/:gameId')
+  @Roles(UserRole.ADMIN)
+  updateGame(
+    @CurrentUser() user: AuthUser,
+    @Param('id') id: string,
+    @Param('gameId') gameId: string,
+    @Body() dto: CreateGameDto,
+  ) {
+    return this.eventsService.updateGame(user.organizationId, id, gameId, dto);
+  }
+
+  @Delete(':id/games/:gameId')
+  @Roles(UserRole.ADMIN)
+  deleteGame(
+    @CurrentUser() user: AuthUser,
+    @Param('id') id: string,
+    @Param('gameId') gameId: string,
+  ) {
+    return this.eventsService.deleteGame(user.organizationId, id, gameId);
+  }
+
+  @Post(':id/games/:gameId/results')
+  @Roles(UserRole.ADMIN)
+  upsertResult(
+    @CurrentUser() user: AuthUser,
+    @Param('id') id: string,
+    @Param('gameId') gameId: string,
+    @Body() dto: UpsertGameResultDto,
+  ) {
+    return this.eventsService.upsertGameResult(
+      user.organizationId,
+      id,
+      gameId,
+      dto,
+    );
+  }
+
+  @Post(':id/games/:gameId/results/import')
+  @Roles(UserRole.ADMIN)
+  importResults(
+    @CurrentUser() user: AuthUser,
+    @Param('id') id: string,
+    @Param('gameId') gameId: string,
+    @Body() dto: ImportParticipantsDto,
+  ) {
+    return this.eventsService.importGameResultsCsv(
+      user.organizationId,
+      id,
+      gameId,
       dto.csv,
     );
   }

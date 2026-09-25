@@ -5,7 +5,7 @@ import {
   IsString,
   MinLength,
 } from 'class-validator';
-import { EventStatus } from '@prisma/client';
+import { EventKind, EventStatus } from '@prisma/client';
 
 export class CreateEventDto {
   @IsString()
@@ -26,6 +26,10 @@ export class CreateEventDto {
   @IsOptional()
   @IsEnum(EventStatus)
   status?: EventStatus;
+
+  @IsOptional()
+  @IsEnum(EventKind)
+  kind?: EventKind;
 
   @IsOptional()
   @IsString()

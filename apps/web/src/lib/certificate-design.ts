@@ -7,7 +7,10 @@ export type DesignRole =
   | "certificateNumber"
   | "signatoryName"
   | "signatoryTitle"
-  | "signature";
+  | "signature"
+  | "gameName"
+  | "placement"
+  | "teamLabel";
 
 export type DesignElementType =
   | "text"
@@ -42,6 +45,8 @@ export type DesignElement = {
   /** Image URL (e.g. uploaded signature) */
   src?: string;
   locked?: boolean;
+  /** Rotation in degrees (clockwise) */
+  rotation?: number;
 };
 
 export type CertificateDesign = {
@@ -61,6 +66,17 @@ export type TemplatePreset = {
 };
 
 export const DESIGN_CANVAS = { width: 1123, height: 794 };
+
+/** Empty white canvas — admin builds the certificate from scratch. */
+export function createBlankDesign(): CertificateDesign {
+  return normalizeDesign({
+    version: 1,
+    width: DESIGN_CANVAS.width,
+    height: DESIGN_CANVAS.height,
+    background: "#ffffff",
+    elements: [],
+  });
+}
 
 /** Text box from center/left/right anchor + baseline (legacy) → top-left box */
 function textEl(
@@ -131,10 +147,12 @@ export function normalizeDesign(design: CertificateDesign): CertificateDesign {
         return { ...el, width, height, locked: el.locked ?? false };
       }
       if (el.type === "line") {
+        // height is a designer hit-box only; PDF draws using strokeWidth.
         return {
           ...el,
           width: el.width ?? 200,
-          height: Math.max(el.height ?? 0, el.strokeWidth ?? 2, 4),
+          height: Math.max(el.height ?? 0, 8),
+          strokeWidth: el.strokeWidth ?? 1.5,
           locked: el.locked ?? false,
         };
       }
@@ -239,7 +257,7 @@ export function createElegantStarterDesign(
         x: 320,
         y: 330,
         width: 480,
-        height: 2,
+        height: 0,
         stroke: "#d4af37",
         strokeWidth: 1.5,
       },
@@ -282,7 +300,7 @@ export function createElegantStarterDesign(
         x: 160,
         y: 640,
         width: 220,
-        height: 2,
+        height: 0,
         stroke: "#9ca3af",
         strokeWidth: 1,
       },
@@ -316,7 +334,7 @@ export function createElegantStarterDesign(
         x: 740,
         y: 640,
         width: 240,
-        height: 2,
+        height: 0,
         stroke: "#111827",
         strokeWidth: 1.5,
       },
@@ -469,7 +487,7 @@ export function createAppreciationDesign(): CertificateDesign {
         x: 400,
         y: 370,
         width: 440,
-        height: 2,
+        height: 0,
         stroke: "#c9a227",
         strokeWidth: 1.5,
       },
@@ -515,7 +533,7 @@ export function createAppreciationDesign(): CertificateDesign {
         x: 700,
         y: 620,
         width: 240,
-        height: 2,
+        height: 0,
         stroke: "#111111",
         strokeWidth: 1.5,
       },
@@ -663,7 +681,7 @@ export function createAchievementDesign(): CertificateDesign {
         x: 340,
         y: 400,
         width: 440,
-        height: 2,
+        height: 0,
         stroke: "#d4af37",
         strokeWidth: 1,
       },
@@ -718,7 +736,7 @@ export function createAchievementDesign(): CertificateDesign {
         x: 740,
         y: 658,
         width: 240,
-        height: 2,
+        height: 0,
         stroke: "#111827",
         strokeWidth: 1.5,
       },
@@ -881,7 +899,7 @@ export function createParticipationDesign(): CertificateDesign {
           x: 740,
           y: 640,
           width: 240,
-          height: 2,
+          height: 0,
           stroke: "#0f766e",
           strokeWidth: 1.5,
         },

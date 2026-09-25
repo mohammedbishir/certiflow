@@ -55,6 +55,175 @@ export class TemplatesService {
     return path.join(process.cwd(), 'uploads', 'templates');
   }
 
+  getDesignAssetsUploadDir() {
+    return path.join(process.cwd(), 'uploads', 'design-assets');
+  }
+
+  async listDesignAssets(organizationId: string, category?: string) {
+    return this.prisma.designAsset.findMany({
+      where: {
+        organizationId,
+        ...(category && category !== 'all' ? { category } : {}),
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
+  async uploadDesignAsset(
+    organizationId: string,
+    file?: Express.Multer.File,
+    options?: {
+      name?: string;
+      category?: string;
+      removeBg?: boolean;
+    },
+  ) {
+    if (!file) {
+      throw new BadRequestException('Image file is required');
+    }
+
+    if (!ALLOWED_DESIGN_ASSET_MIME.has(file.mimetype)) {
+      throw new BadRequestException(
+        'Only PNG, JPG, WEBP, or SVG images are allowed',
+      );
+    }
+
+    const category = this.normalizeAssetCategory(options?.category);
+    const removeBg = Boolean(options?.removeBg) && file.mimetype !== 'image/svg+xml';
+    const originalName =
+      options?.name?.trim() ||
+      path.parse(file.originalname || 'asset').name ||
+      'Uploaded asset';
+
+    const dir = this.getDesignAssetsUploadDir();
+    await mkdir(dir, { recursive: true });
+
+    let buffer: Buffer = file.buffer;
+    let extension = this.extensionForImageMime(file.mimetype);
+
+    if (removeBg) {
+      buffer = await this.removeImageBackground(file.buffer);
+      extension = '.png';
+    } else if (file.mimetype !== 'image/svg+xml') {
+      // Normalize raster uploads to PNG for consistent designer use
+      try {
+        const sharp = (await import('sharp')).default;
+        buffer = await sharp(file.buffer).png().toBuffer();
+        extension = '.png';
+      } catch {
+        // keep original buffer
+      }
+    }
+
+    const fileName = `${organizationId.slice(0, 8)}-${Date.now()}${extension}`;
+    await writeFile(path.join(dir, fileName), buffer);
+    const url = `/uploads/design-assets/${fileName}`;
+
+    const asset = await this.prisma.designAsset.create({
+      data: {
+        organizationId,
+        name: originalName.slice(0, 80),
+        category,
+        url,
+        removeBg,
+      },
+    });
+
+    return {
+      message: removeBg
+        ? 'Shape uploaded with background removed'
+        : 'Image saved to your library',
+      asset,
+      url: asset.url,
+    };
+  }
+
+  async deleteDesignAsset(organizationId: string, assetId: string) {
+    const asset = await this.prisma.designAsset.findFirst({
+      where: { id: assetId, organizationId },
+    });
+    if (!asset) {
+      throw new NotFoundException('Design asset not found');
+    }
+
+    await this.deleteUploadFile(asset.url);
+    await this.prisma.designAsset.delete({ where: { id: asset.id } });
+
+    return { message: 'Asset removed from library' };
+  }
+
+  private normalizeAssetCategory(value?: string) {
+    const allowed = new Set(['seals', 'shapes', 'signatures', 'other']);
+    const next = (value || 'seals').toLowerCase().trim();
+    return allowed.has(next) ? next : 'seals';
+  }
+
+  /**
+   * Approximate background removal: sample corner colors and clear similar
+   * pixels to transparent so seals/shapes sit cleanly on certificates.
+   */
+  private async removeImageBackground(input: Buffer): Promise<Buffer> {
+    const sharp = (await import('sharp')).default;
+    const { data, info } = await sharp(input)
+      .ensureAlpha()
+      .raw()
+      .toBuffer({ resolveWithObject: true });
+
+    const { width, height, channels } = info;
+    if (channels < 4) {
+      return sharp(input).png().toBuffer();
+    }
+
+    const idx = (x: number, y: number) => (y * width + x) * channels;
+    const sample = (x: number, y: number) => {
+      const i = idx(
+        Math.min(width - 1, Math.max(0, x)),
+        Math.min(height - 1, Math.max(0, y)),
+      );
+      return [data[i], data[i + 1], data[i + 2]] as const;
+    };
+
+    const corners = [
+      sample(2, 2),
+      sample(width - 3, 2),
+      sample(2, height - 3),
+      sample(width - 3, height - 3),
+      sample(Math.floor(width / 2), 2),
+      sample(2, Math.floor(height / 2)),
+    ];
+
+    const bgR = Math.round(corners.reduce((s, c) => s + c[0], 0) / corners.length);
+    const bgG = Math.round(corners.reduce((s, c) => s + c[1], 0) / corners.length);
+    const bgB = Math.round(corners.reduce((s, c) => s + c[2], 0) / corners.length);
+
+    // Near-white / sampled background tolerance
+    const hard = 38;
+    const soft = 72;
+
+    for (let i = 0; i < data.length; i += channels) {
+      const r = data[i];
+      const g = data[i + 1];
+      const b = data[i + 2];
+      const dist = Math.sqrt(
+        (r - bgR) ** 2 + (g - bgG) ** 2 + (b - bgB) ** 2,
+      );
+      const nearWhite = r > 235 && g > 235 && b > 235;
+
+      if (dist <= hard || nearWhite) {
+        data[i + 3] = 0;
+      } else if (dist < soft) {
+        const t = (dist - hard) / (soft - hard);
+        data[i + 3] = Math.round(data[i + 3] * t);
+      }
+    }
+
+    return sharp(data, {
+      raw: { width, height, channels: 4 },
+    })
+      .png()
+      .toBuffer();
+  }
+
   async findAll(organizationId: string) {
     return this.prisma.certificateTemplate.findMany({
       where: { organizationId },
@@ -189,33 +358,6 @@ export class TemplatesService {
     };
   }
 
-  async uploadDesignAsset(
-    organizationId: string,
-    file?: Express.Multer.File,
-  ) {
-    if (!file) {
-      throw new BadRequestException('Image file is required');
-    }
-
-    if (!ALLOWED_DESIGN_ASSET_MIME.has(file.mimetype)) {
-      throw new BadRequestException(
-        'Only PNG, JPG, WEBP, or SVG images are allowed',
-      );
-    }
-
-    const dir = this.getTemplatesUploadDir();
-    await mkdir(dir, { recursive: true });
-
-    const extension = this.extensionForImageMime(file.mimetype);
-    const fileName = `${organizationId.slice(0, 8)}-asset-${Date.now()}${extension}`;
-    await writeFile(path.join(dir, fileName), file.buffer);
-
-    return {
-      message: 'Image uploaded successfully',
-      url: `/uploads/templates/${fileName}`,
-    };
-  }
-
   async clearBackground(organizationId: string, id: string) {
     const template = await this.findOne(organizationId, id);
     await this.deleteUploadFile(template.backgroundUrl);
@@ -341,7 +483,10 @@ export class TemplatesService {
   }
 
   private async deleteUploadFile(fileUrl?: string | null) {
-    if (!fileUrl?.startsWith('/uploads/templates/')) {
+    if (
+      !fileUrl?.startsWith('/uploads/templates/') &&
+      !fileUrl?.startsWith('/uploads/design-assets/')
+    ) {
       return;
     }
 

@@ -8,7 +8,7 @@ import { useConfirm } from "@/components/confirm-modal";
 import { getAccessToken } from "@/lib/auth";
 import {
   applyOrgBrandingToDesign,
-  createElegantStarterDesign,
+  createBlankDesign,
   normalizeDesign,
   type CertificateDesign,
   type OrgBranding,
@@ -46,10 +46,10 @@ function DesignerInner() {
 
   const [ready, setReady] = useState(false);
   const [templateId, setTemplateId] = useState<string | null>(editId);
-  const [name, setName] = useState("White and Gold Elegant Certificate");
+  const [name, setName] = useState("Untitled certificate");
   const [templateType] = useState<TemplateType>("COMPLETION");
   const [design, setDesign] = useState<CertificateDesign>(() =>
-    normalizeDesign(createElegantStarterDesign()),
+    normalizeDesign(createBlankDesign()),
   );
   const [orgBranding, setOrgBranding] = useState<OrgBranding | null>(null);
   const [saving, setSaving] = useState(false);
@@ -76,20 +76,11 @@ function DesignerInner() {
           if (tpl.designJson && typeof tpl.designJson === "object") {
             setDesign(normalizeDesign(tpl.designJson as CertificateDesign));
           } else {
-            setDesign(
-              applyOrgBrandingToDesign(
-                createElegantStarterDesign(
-                  tpl.titleText || "CERTIFICATE",
-                  tpl.subtitleText || "OF COMPLETION",
-                ),
-                branding,
-              ),
-            );
+            setDesign(applyOrgBrandingToDesign(createBlankDesign(), branding));
           }
         } else {
-          setDesign(
-            applyOrgBrandingToDesign(createElegantStarterDesign(), branding),
-          );
+          // New template: empty canvas — admin designs from scratch.
+          setDesign(createBlankDesign());
         }
       } catch {
         toast.error("Failed to load designer");
@@ -209,6 +200,7 @@ function DesignerInner() {
               <button
                 type="button"
                 className="designer-btn ghost"
+                data-tooltip="Close preview"
                 onClick={() => {
                   URL.revokeObjectURL(previewUrl);
                   setPreviewUrl(null);

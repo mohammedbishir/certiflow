@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { toast } from "react-toastify";
 import { AppShell } from "@/components/app-shell";
 import { useConfirm } from "@/components/confirm-modal";
+import { InfoTip } from "@/components/tooltip";
 import { createEvent } from "@/lib/events";
 import {
   listActiveTemplates,
@@ -24,6 +25,7 @@ export default function NewEventPage() {
     date: "",
     location: "",
     status: "INACTIVE" as "ACTIVE" | "INACTIVE",
+    kind: "WORKSHOP" as "WORKSHOP" | "SPORTS_MEET",
     templateId: "",
   });
 
@@ -67,6 +69,7 @@ export default function NewEventPage() {
         date: new Date(form.date).toISOString(),
         location: form.location.trim() || undefined,
         status: form.status,
+        kind: form.kind,
         templateId: form.templateId || undefined,
       });
       toast.success(result.message);
@@ -81,10 +84,12 @@ export default function NewEventPage() {
   return (
     <AppShell
       title="New event"
-      subtitle="Create a workshop or seminar and generate a registration link."
+      subtitle="Create a workshop (one certificate each) or a school sports meet (games + 1st/2nd/3rd)."
       actions={
         <Link
           href="/events"
+          data-tooltip="Back to events list"
+          data-tooltip-pos="bottom"
           className="inline-flex h-10 items-center rounded-full border border-border bg-surface px-4 text-sm font-medium text-foreground transition hover:bg-surface-muted"
         >
           Back
@@ -97,6 +102,28 @@ export default function NewEventPage() {
       >
         <label className="block">
           <span className="mb-1.5 block text-sm font-medium text-foreground">
+            Event type
+            <InfoTip text="Sports meet: many games under one event, with 1st / 2nd / 3rd certificates per game" />
+          </span>
+          <select
+            value={form.kind}
+            onChange={(e) =>
+              setForm((prev) => ({
+                ...prev,
+                kind: e.target.value as "WORKSHOP" | "SPORTS_MEET",
+              }))
+            }
+            className="w-full rounded-xl border border-border bg-background px-3.5 py-2.5 text-foreground outline-none ring-accent focus:ring-2"
+          >
+            <option value="WORKSHOP">Workshop / seminar (1 cert per person)</option>
+            <option value="SPORTS_MEET">
+              Sports meet (games + 1st / 2nd / 3rd per game)
+            </option>
+          </select>
+        </label>
+
+        <label className="block">
+          <span className="mb-1.5 block text-sm font-medium text-foreground">
             Event name
           </span>
           <input
@@ -104,7 +131,11 @@ export default function NewEventPage() {
             value={form.name}
             onChange={(e) => setForm((prev) => ({ ...prev, name: e.target.value }))}
             className="w-full rounded-xl border border-border bg-background px-3.5 py-2.5 text-foreground outline-none ring-accent focus:ring-2"
-            placeholder="AI & Web Development Workshop"
+            placeholder={
+              form.kind === "SPORTS_MEET"
+                ? "Annual Sports Meet 2026"
+                : "AI & Web Development Workshop"
+            }
           />
         </label>
 
@@ -157,6 +188,7 @@ export default function NewEventPage() {
         <label className="block">
           <span className="mb-1.5 block text-sm font-medium text-foreground">
             Certificate template
+            <InfoTip text="Required before you can activate registration" />
           </span>
           <select
             value={form.templateId}
@@ -171,6 +203,7 @@ export default function NewEventPage() {
                     : prev.status,
               }));
             }}
+            data-tooltip="Choose the certificate layout for this event"
             className="w-full rounded-xl border border-border bg-background px-3.5 py-2.5 text-foreground outline-none ring-accent focus:ring-2"
           >
             <option value="">Select a template</option>
@@ -219,12 +252,14 @@ export default function NewEventPage() {
           <button
             type="submit"
             disabled={saving}
+            data-tooltip="Create this event"
             className="rounded-full bg-accent px-5 py-2.5 text-sm font-medium text-accent-foreground transition hover:opacity-90 disabled:opacity-60"
           >
             {saving ? "Creating..." : "Create event"}
           </button>
           <Link
             href="/events"
+            data-tooltip="Cancel and return to events"
             className="rounded-full border border-border px-5 py-2.5 text-sm font-medium text-foreground hover:bg-surface-muted"
           >
             Cancel

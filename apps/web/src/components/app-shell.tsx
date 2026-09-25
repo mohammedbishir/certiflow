@@ -15,7 +15,7 @@ export function AppShell({ title, subtitle, children, actions }: AppShellProps) 
     <div className="page-shell flex flex-1 flex-col">
       <header className="border-b border-border/80 bg-surface/80 backdrop-blur-md">
         <div className="mx-auto flex w-full max-w-5xl items-center justify-between gap-4 px-6 py-4">
-          <Link href="/dashboard" className="group">
+          <Link href="/dashboard" className="group" data-tooltip="Go to dashboard" data-tooltip-pos="bottom">
             <p className="text-lg font-semibold tracking-tight text-foreground">
               CertiFlow
             </p>

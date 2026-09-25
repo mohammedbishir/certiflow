@@ -155,9 +155,19 @@ export async function updateTemplate(
   };
 }
 
-export async function uploadDesignAsset(file: File) {
+export async function uploadDesignAsset(
+  file: File,
+  options?: {
+    name?: string;
+    category?: "seals" | "shapes" | "signatures" | "other";
+    removeBg?: boolean;
+  },
+) {
   const body = new FormData();
   body.append("file", file);
+  if (options?.name) body.append("name", options.name);
+  if (options?.category) body.append("category", options.category);
+  if (options?.removeBg) body.append("removeBg", "true");
 
   const response = await fetch(`${getApiBase()}/templates/design-assets`, {
     method: "POST",
@@ -167,7 +177,38 @@ export async function uploadDesignAsset(file: File) {
   return (await parseResponse(response)) as {
     message: string;
     url: string;
+    asset: DesignAsset;
   };
+}
+
+export type DesignAsset = {
+  id: string;
+  organizationId: string;
+  name: string;
+  category: string;
+  url: string;
+  removeBg: boolean;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export async function listDesignAssets(category?: string) {
+  const qs = category && category !== "all" ? `?category=${category}` : "";
+  const response = await fetch(`${getApiBase()}/templates/design-assets${qs}`, {
+    headers: authHeaders(),
+  });
+  return (await parseResponse(response)) as DesignAsset[];
+}
+
+export async function deleteDesignAsset(assetId: string) {
+  const response = await fetch(
+    `${getApiBase()}/templates/design-assets/${assetId}`,
+    {
+      method: "DELETE",
+      headers: authHeaders(),
+    },
+  );
+  return (await parseResponse(response)) as { message: string };
 }
 
 export async function uploadTemplateBackground(id: string, file: File) {

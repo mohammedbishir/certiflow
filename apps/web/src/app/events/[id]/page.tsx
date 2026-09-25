@@ -6,7 +6,10 @@ import { useParams, useRouter } from "next/navigation";
 import { toast } from "react-toastify";
 import { AppShell } from "@/components/app-shell";
 import { useConfirm } from "@/components/confirm-modal";
+import { EditCertificateModal } from "@/components/edit-certificate-modal";
+import { SportsGamesPanel } from "@/components/sports-games-panel";
 import { TablePager, usePagedList } from "@/components/table-pager";
+import { InfoTip } from "@/components/tooltip";
 import { getAccessToken } from "@/lib/auth";
 import {
   certificateDownloadUrl,
@@ -21,6 +24,7 @@ import {
   getEvent,
   importParticipantsCsv,
   listParticipants,
+  placementLabel,
   registrationPath,
   type EventItem,
   type ImportParticipantsResult,
@@ -71,6 +75,8 @@ export default function EventDetailPage() {
   const [previewTitle, setPreviewTitle] = useState("");
   const [previewingId, setPreviewingId] = useState<string | null>(null);
   const [previewingEvent, setPreviewingEvent] = useState(false);
+  const [editingCertificate, setEditingCertificate] =
+    useState<CertificateItem | null>(null);
 
   const filteredParticipants = useMemo(() => {
     const q = participantQuery.toLowerCase().trim();
@@ -87,7 +93,7 @@ export default function EventDetailPage() {
         return false;
       }
       if (!q) return true;
-      return `${c.participant.fullName} ${c.participant.email} ${c.certificateNumber}`
+      return `${c.participant.fullName} ${c.participant.email} ${c.certificateNumber} ${c.gameResult?.game.name ?? ""} ${c.gameResult?.placement ?? ""}`
         .toLowerCase()
         .includes(q);
     });
@@ -346,10 +352,13 @@ export default function EventDetailPage() {
       toast.info("Nothing to export");
       return;
     }
+    const isSports = event.kind === "SPORTS_MEET";
     const rows = filteredCertificates.map((c, index) => ({
       no: index + 1,
       fullName: c.participant.fullName,
       email: c.participant.email,
+      game: c.gameResult?.game.name ?? "—",
+      place: c.gameResult ? placementLabel(c.gameResult.placement) : "—",
       certificateNumber: c.certificateNumber,
       issued: formatShortDate(c.issuedAt),
       status: c.status,
@@ -358,6 +367,12 @@ export default function EventDetailPage() {
       { header: "#", key: "no" },
       { header: "Participant", key: "fullName" },
       { header: "Email", key: "email" },
+      ...(isSports
+        ? [
+            { header: "Game", key: "game" },
+            { header: "Place", key: "place" },
+          ]
+        : []),
       { header: "Certificate #", key: "certificateNumber" },
       { header: "Issued", key: "issued" },
       { header: "Status", key: "status" },
@@ -404,6 +419,8 @@ export default function EventDetailPage() {
         <>
           <Link
             href="/events"
+            data-tooltip="Back to all events"
+            data-tooltip-pos="bottom"
             className="inline-flex h-10 items-center rounded-full border border-border bg-surface px-4 text-sm font-medium text-foreground transition hover:bg-surface-muted"
           >
             All events
@@ -412,12 +429,20 @@ export default function EventDetailPage() {
             type="button"
             disabled={previewingEvent || !hasTemplate}
             onClick={() => void onPreviewEventCertificate()}
+            data-tooltip={
+              hasTemplate
+                ? "Preview sample certificate with this event’s template"
+                : "Assign a template first"
+            }
+            data-tooltip-pos="bottom"
             className="inline-flex h-10 items-center rounded-full border border-border bg-surface px-4 text-sm font-medium text-foreground transition hover:bg-surface-muted disabled:opacity-60"
           >
             {previewingEvent ? "Loading…" : "Preview certificate"}
           </button>
           <Link
             href={`/events/${event.id}/edit`}
+            data-tooltip="Edit name, date, template, and status"
+            data-tooltip-pos="bottom"
             className="inline-flex h-10 items-center rounded-full bg-accent px-4 text-sm font-medium text-accent-foreground transition hover:opacity-90"
           >
             Edit event
@@ -435,6 +460,7 @@ export default function EventDetailPage() {
             </p>
             <Link
               href={`/events/${event.id}/edit`}
+              data-tooltip="Assign a certificate template to this event"
               className="mt-3 inline-flex rounded-full bg-accent px-4 py-2 text-sm font-medium text-accent-foreground hover:opacity-90"
             >
               Choose template
@@ -447,24 +473,46 @@ export default function EventDetailPage() {
             <div className="flex flex-wrap items-start justify-between gap-4">
               <div>
                 <div className="flex flex-wrap items-center gap-2">
-                  <span
-                    className={`rounded-full px-2.5 py-1 text-xs font-medium ${
-                      event.status === "ACTIVE"
-                        ? "bg-accent/15 text-accent"
-                        : "bg-surface-muted text-muted"
-                    }`}
-                  >
-                    {event.status}
-                  </span>
+                    <span
+                      className={`rounded-full px-2.5 py-1 text-xs font-medium ${
+                        event.status === "ACTIVE"
+                          ? "bg-accent/15 text-accent"
+                          : "bg-surface-muted text-muted"
+                      }`}
+                      data-tooltip={
+                        event.status === "ACTIVE"
+                          ? "Open for participant registration"
+                          : "Registration is closed"
+                      }
+                    >
+                      {event.status}
+                    </span>
+                    <span
+                      className="rounded-full border border-border px-2.5 py-1 text-xs font-medium text-muted"
+                      data-tooltip={
+                        event.kind === "SPORTS_MEET"
+                          ? "Sports meet — games with 1st / 2nd / 3rd certificates"
+                          : "Workshop — one certificate per registration"
+                      }
+                    >
+                      {event.kind === "SPORTS_MEET" ? "Sports meet" : "Workshop"}
+                    </span>
                   {event.template ? (
-                    <span className="rounded-full border border-border px-2.5 py-1 text-xs font-medium text-muted">
+                    <span
+                      className="rounded-full border border-border px-2.5 py-1 text-xs font-medium text-muted"
+                      data-tooltip="Certificate template assigned to this event"
+                    >
                       {event.template.name} · {event.template.templateType}
                     </span>
                   ) : (
-                    <span className="rounded-full border border-amber-500/40 bg-amber-500/10 px-2.5 py-1 text-xs font-medium text-amber-800 dark:text-amber-200">
+                    <span
+                      className="rounded-full border border-amber-500/40 bg-amber-500/10 px-2.5 py-1 text-xs font-medium text-amber-800 dark:text-amber-200"
+                      data-tooltip="Required before activation and registration"
+                    >
                       No template
                     </span>
                   )}
+                  <InfoTip text="Overview of this workshop — participants register via the public link" />
                 </div>
                 <dl className="mt-5 grid gap-4 sm:grid-cols-2">
                   <div>
@@ -495,12 +543,18 @@ export default function EventDetailPage() {
                   type="button"
                   disabled={previewingEvent || !hasTemplate}
                   onClick={() => void onPreviewEventCertificate()}
+                  data-tooltip={
+                    hasTemplate
+                      ? "Preview sample certificate PDF"
+                      : "Assign a template first"
+                  }
                   className="rounded-full border border-border px-4 py-2 text-sm font-medium text-foreground hover:bg-surface-muted disabled:opacity-60"
                 >
                   {previewingEvent ? "Loading…" : "Preview certificate"}
                 </button>
                 <Link
                   href={`/events/${event.id}/edit`}
+                  data-tooltip="Edit event details and template"
                   className="rounded-full bg-accent px-4 py-2 text-sm font-medium text-accent-foreground hover:opacity-90"
                 >
                   Edit event details
@@ -512,12 +566,14 @@ export default function EventDetailPage() {
                     (event.status !== "ACTIVE" && !hasTemplate)
                   }
                   onClick={onToggleEventStatus}
-                  className="rounded-full border border-border px-4 py-2 text-sm font-medium text-foreground hover:bg-surface-muted disabled:opacity-60"
-                  title={
+                  data-tooltip={
                     event.status !== "ACTIVE" && !hasTemplate
                       ? "Select a certificate template first"
-                      : undefined
+                      : event.status === "ACTIVE"
+                        ? "Close participant registration"
+                        : "Open participant registration"
                   }
+                  className="rounded-full border border-border px-4 py-2 text-sm font-medium text-foreground hover:bg-surface-muted disabled:opacity-60"
                 >
                   {togglingStatus
                     ? "Updating..."
@@ -558,7 +614,10 @@ export default function EventDetailPage() {
 
           <aside className="space-y-4">
             <div className="rounded-2xl border border-border bg-surface p-6 shadow-[var(--shadow)]">
-              <p className="text-sm font-medium text-accent">Registration</p>
+              <p className="text-sm font-medium text-accent">
+                Registration
+                <InfoTip text="Share this link so participants can register themselves" />
+              </p>
               <h2 className="mt-1 text-lg font-semibold text-foreground">
                 Participant link
               </h2>
@@ -577,6 +636,11 @@ export default function EventDetailPage() {
                   type="button"
                   onClick={copyLink}
                   disabled={!registrationReady}
+                  data-tooltip={
+                    registrationReady
+                      ? "Copy registration URL to clipboard"
+                      : "Activate event with a template first"
+                  }
                   className="rounded-full border border-border px-4 py-2 text-sm font-medium text-foreground hover:bg-surface-muted disabled:opacity-40"
                 >
                   Copy link
@@ -590,6 +654,11 @@ export default function EventDetailPage() {
                   target="_blank"
                   rel="noreferrer"
                   aria-disabled={!registrationReady}
+                  data-tooltip={
+                    registrationReady
+                      ? "Open the public registration page"
+                      : "Activate event with a template first"
+                  }
                   onClick={(e) => {
                     if (!registrationReady) e.preventDefault();
                   }}
@@ -605,7 +674,10 @@ export default function EventDetailPage() {
             </div>
 
             <div className="rounded-2xl border border-border bg-surface p-6 shadow-[var(--shadow)]">
-              <p className="text-sm font-medium text-accent">Bulk import</p>
+              <p className="text-sm font-medium text-accent">
+                Bulk import
+                <InfoTip text="Import many participants at once from a CSV file" />
+              </p>
               <h2 className="mt-1 text-lg font-semibold text-foreground">
                 CSV participants
               </h2>
@@ -619,6 +691,11 @@ export default function EventDetailPage() {
                 </p>
               ) : null}
               <label
+                data-tooltip={
+                  hasTemplate
+                    ? "Upload a CSV of participants"
+                    : "Assign a template before importing"
+                }
                 className={`mt-4 inline-flex rounded-full border border-border px-4 py-2 text-sm font-medium text-foreground ${
                   importing || !hasTemplate
                     ? "cursor-not-allowed opacity-40"
@@ -643,6 +720,7 @@ export default function EventDetailPage() {
                   "fullName,email,phone\nJane Doe,jane@example.com,+91 98765 43210\n",
                 )}`}
                 download="participants-sample.csv"
+                data-tooltip="Download a sample CSV with the correct columns"
                 className="ml-2 inline-flex text-sm font-medium text-accent hover:underline"
               >
                 Sample CSV
@@ -660,12 +738,28 @@ export default function EventDetailPage() {
           </aside>
         </div>
 
+        {event.kind === "SPORTS_MEET" ? (
+          <SportsGamesPanel
+            eventId={event.id}
+            onCertificatesChanged={() => void refreshLists()}
+          />
+        ) : null}
+
         <section className="rounded-2xl border border-border bg-surface p-6 shadow-[var(--shadow)]">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div className="shrink-0">
-              <p className="text-sm font-medium text-accent">Participants</p>
+              <p className="text-sm font-medium text-accent">
+                Participants
+                <InfoTip
+                  text={
+                    event.kind === "SPORTS_MEET"
+                      ? "Athlete roster for this sports meet"
+                      : "People who registered or were imported for this event"
+                  }
+                />
+              </p>
               <h2 className="mt-1 text-lg font-semibold text-foreground">
-                Registrations
+                {event.kind === "SPORTS_MEET" ? "Athlete roster" : "Registrations"}
               </h2>
             </div>
             <div className="flex items-center gap-2">
@@ -674,12 +768,14 @@ export default function EventDetailPage() {
                 value={participantQuery}
                 onChange={(e) => setParticipantQuery(e.target.value)}
                 placeholder="Search name, email, phone…"
+                data-tooltip="Filter the participants list"
                 className="h-10 min-w-0 flex-1 rounded-xl border border-border bg-background px-3.5 text-sm text-foreground outline-none ring-accent focus:ring-2 sm:w-64 sm:flex-none"
               />
               <button
                 type="button"
                 disabled={filteredParticipants.length === 0}
                 onClick={() => exportParticipants("xlsx")}
+                data-tooltip="Export visible participants to Excel"
                 className="inline-flex h-10 shrink-0 items-center rounded-full border border-border px-4 text-sm font-medium text-foreground hover:bg-surface-muted disabled:opacity-40"
               >
                 Excel
@@ -688,6 +784,7 @@ export default function EventDetailPage() {
                 type="button"
                 disabled={filteredParticipants.length === 0}
                 onClick={() => exportParticipants("pdf")}
+                data-tooltip="Export visible participants to PDF"
                 className="inline-flex h-10 shrink-0 items-center rounded-full border border-border px-4 text-sm font-medium text-foreground hover:bg-surface-muted disabled:opacity-40"
               >
                 PDF
@@ -755,7 +852,10 @@ export default function EventDetailPage() {
         <section className="rounded-2xl border border-border bg-surface p-6 shadow-[var(--shadow)]">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div className="shrink-0">
-              <p className="text-sm font-medium text-accent">Certificates</p>
+              <p className="text-sm font-medium text-accent">
+                Certificates
+                <InfoTip text="Issued PDFs for this event — preview, download, or revoke" />
+              </p>
               <h2 className="mt-1 text-lg font-semibold text-foreground">
                 Issued certificates
               </h2>
@@ -768,6 +868,7 @@ export default function EventDetailPage() {
                     e.target.value as "ALL" | "VALID" | "REVOKED",
                   )
                 }
+                data-tooltip="Filter by certificate status"
                 className="h-10 shrink-0 rounded-xl border border-border bg-background px-3 text-sm text-foreground outline-none"
               >
                 <option value="ALL">All status</option>
@@ -779,12 +880,14 @@ export default function EventDetailPage() {
                 value={certQuery}
                 onChange={(e) => setCertQuery(e.target.value)}
                 placeholder="Search name, email, cert #…"
+                data-tooltip="Search certificates"
                 className="h-10 min-w-0 flex-1 rounded-xl border border-border bg-background px-3.5 text-sm text-foreground outline-none ring-accent focus:ring-2 sm:w-56 sm:flex-none"
               />
               <button
                 type="button"
                 disabled={filteredCertificates.length === 0}
                 onClick={() => exportCertificates("xlsx")}
+                data-tooltip="Export visible certificates to Excel"
                 className="inline-flex h-10 shrink-0 items-center rounded-full border border-border px-4 text-sm font-medium text-foreground hover:bg-surface-muted disabled:opacity-40"
               >
                 Excel
@@ -793,6 +896,7 @@ export default function EventDetailPage() {
                 type="button"
                 disabled={filteredCertificates.length === 0}
                 onClick={() => exportCertificates("pdf")}
+                data-tooltip="Export visible certificates to PDF"
                 className="inline-flex h-10 shrink-0 items-center rounded-full border border-border px-4 text-sm font-medium text-foreground hover:bg-surface-muted disabled:opacity-40"
               >
                 PDF
@@ -814,6 +918,12 @@ export default function EventDetailPage() {
                     <tr>
                       <th className="px-4 py-3 font-medium">#</th>
                       <th className="px-4 py-3 font-medium">Participant</th>
+                      {event?.kind === "SPORTS_MEET" ? (
+                        <>
+                          <th className="px-4 py-3 font-medium">Game</th>
+                          <th className="px-4 py-3 font-medium">Place</th>
+                        </>
+                      ) : null}
                       <th className="px-4 py-3 font-medium">Certificate #</th>
                       <th className="px-4 py-3 font-medium">Issued</th>
                       <th className="px-4 py-3 font-medium">Status</th>
@@ -834,6 +944,18 @@ export default function EventDetailPage() {
                             {certificate.participant.email}
                           </p>
                         </td>
+                        {event?.kind === "SPORTS_MEET" ? (
+                          <>
+                            <td className="px-4 py-3 text-foreground">
+                              {certificate.gameResult?.game.name ?? "—"}
+                            </td>
+                            <td className="px-4 py-3 font-medium text-accent">
+                              {certificate.gameResult
+                                ? placementLabel(certificate.gameResult.placement)
+                                : "—"}
+                            </td>
+                          </>
+                        ) : null}
                         <td className="px-4 py-3 font-mono text-xs text-foreground">
                           {certificate.certificateNumber}
                         </td>
@@ -853,6 +975,14 @@ export default function EventDetailPage() {
                         </td>
                         <td className="px-4 py-3">
                           <div className="flex flex-wrap gap-2">
+                            <button
+                              type="button"
+                              onClick={() => setEditingCertificate(certificate)}
+                              data-tooltip="Edit name, email, place — rebuilds PDF"
+                              className="rounded-full border border-border px-3 py-1 text-xs font-medium text-foreground hover:bg-surface-muted"
+                            >
+                              Edit
+                            </button>
                             {certificate.status === "VALID" ? (
                               <>
                                 <button
@@ -861,6 +991,7 @@ export default function EventDetailPage() {
                                   onClick={() =>
                                     onPreviewCertificate(certificate)
                                   }
+                                  data-tooltip="Preview this certificate PDF"
                                   className="rounded-full border border-border px-3 py-1 text-xs font-medium text-foreground hover:bg-surface-muted disabled:opacity-60"
                                 >
                                   {previewingId === certificate.id
@@ -871,6 +1002,7 @@ export default function EventDetailPage() {
                                   href={certificateDownloadUrl(
                                     certificate.certificateNumber,
                                   )}
+                                  data-tooltip="Download certificate PDF"
                                   className="rounded-full border border-border px-3 py-1 text-xs font-medium text-foreground hover:bg-surface-muted"
                                 >
                                   Download
@@ -882,6 +1014,11 @@ export default function EventDetailPage() {
                               disabled={statusUpdatingId === certificate.id}
                               onClick={() =>
                                 onToggleCertificateStatus(certificate)
+                              }
+                              data-tooltip={
+                                certificate.status === "VALID"
+                                  ? "Revoke this certificate"
+                                  : "Restore this certificate as valid"
                               }
                               className="rounded-full border border-border px-3 py-1 text-xs font-medium text-foreground hover:bg-surface-muted disabled:opacity-60"
                             >
@@ -935,6 +1072,7 @@ export default function EventDetailPage() {
               <button
                 type="button"
                 onClick={closePreview}
+                data-tooltip="Close preview"
                 className="shrink-0 rounded-full border border-border px-4 py-1.5 text-sm font-medium text-foreground hover:bg-surface-muted"
               >
                 Close
@@ -948,6 +1086,17 @@ export default function EventDetailPage() {
           </div>
         </div>
       ) : null}
+      <EditCertificateModal
+        open={Boolean(editingCertificate)}
+        certificate={editingCertificate}
+        onClose={() => setEditingCertificate(null)}
+        onSaved={(updated) => {
+          toast.success("Certificate updated");
+          setCertificates((prev) =>
+            prev.map((c) => (c.id === updated.id ? { ...c, ...updated } : c)),
+          );
+        }}
+      />
       {confirmDialog}
     </AppShell>
   );

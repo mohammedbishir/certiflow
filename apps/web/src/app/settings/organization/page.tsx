@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { toast } from "react-toastify";
 import { AppShell } from "@/components/app-shell";
 import { useConfirm } from "@/components/confirm-modal";
+import { InfoTip } from "@/components/tooltip";
 import { getAccessToken } from "@/lib/auth";
 import { getApiBase } from "@/lib/api";
 import {
@@ -241,6 +242,8 @@ export default function OrganizationSettingsPage() {
       actions={
         <Link
           href="/dashboard"
+          data-tooltip="Back to dashboard"
+          data-tooltip-pos="bottom"
           className="inline-flex h-10 items-center rounded-full border border-border bg-surface px-4 text-sm font-medium text-foreground transition hover:bg-surface-muted"
         >
           Dashboard
@@ -251,7 +254,10 @@ export default function OrganizationSettingsPage() {
         <div className="space-y-6">
           <section className="rounded-2xl border border-border bg-surface p-6 shadow-[var(--shadow)] md:p-7">
             <div className="mb-5 border-b border-border pb-4">
-              <p className="text-sm font-medium text-accent">Company profile</p>
+              <p className="text-sm font-medium text-accent">
+                Company profile
+                <InfoTip text="Issuer name and contact shown on certificates" />
+              </p>
               <h2 className="mt-1 text-xl font-semibold text-foreground">
                 Basic details
               </h2>
@@ -304,7 +310,10 @@ export default function OrganizationSettingsPage() {
 
           <section className="rounded-2xl border border-border bg-surface p-6 shadow-[var(--shadow)] md:p-7">
             <div className="mb-5 border-b border-border pb-4">
-              <p className="text-sm font-medium text-accent">Branding</p>
+              <p className="text-sm font-medium text-accent">
+                Branding
+                <InfoTip text="Logo and signature appear on issued certificates by default" />
+              </p>
               <h2 className="mt-1 text-xl font-semibold text-foreground">
                 Logo & visuals
               </h2>
@@ -342,6 +351,7 @@ export default function OrganizationSettingsPage() {
                     type="button"
                     disabled={uploadingLogo}
                     onClick={() => logoInputRef.current?.click()}
+                    data-tooltip="Upload organization logo (PNG, JPG, SVG)"
                     className="rounded-full bg-accent px-4 py-2 text-sm font-medium text-accent-foreground disabled:opacity-60"
                   >
                     {uploadingLogo ? "Uploading..." : "Upload logo"}
@@ -350,6 +360,7 @@ export default function OrganizationSettingsPage() {
                     <button
                       type="button"
                       onClick={onClearLogo}
+                      data-tooltip="Remove the current logo"
                       className="rounded-full border border-border px-4 py-2 text-sm font-medium text-danger hover:bg-danger-soft"
                     >
                       Remove
@@ -389,6 +400,7 @@ export default function OrganizationSettingsPage() {
                     type="button"
                     disabled={uploadingSignature}
                     onClick={() => signatureInputRef.current?.click()}
+                    data-tooltip="Upload signatory signature image"
                     className="rounded-full bg-accent px-4 py-2 text-sm font-medium text-accent-foreground disabled:opacity-60"
                   >
                     {uploadingSignature ? "Uploading..." : "Upload signature"}
@@ -397,6 +409,7 @@ export default function OrganizationSettingsPage() {
                     <button
                       type="button"
                       onClick={onClearSignature}
+                      data-tooltip="Remove the current signature"
                       className="rounded-full border border-border px-4 py-2 text-sm font-medium text-danger hover:bg-danger-soft"
                     >
                       Remove
@@ -409,7 +422,10 @@ export default function OrganizationSettingsPage() {
 
           <section className="rounded-2xl border border-border bg-surface p-6 shadow-[var(--shadow)] md:p-7">
             <div className="mb-5 border-b border-border pb-4">
-              <p className="text-sm font-medium text-accent">Certificate signer</p>
+              <p className="text-sm font-medium text-accent">
+                Certificate signer
+                <InfoTip text="Name and title printed next to the signature on certificates" />
+              </p>
               <h2 className="mt-1 text-xl font-semibold text-foreground">
                 Signatory details
               </h2>
@@ -444,12 +460,14 @@ export default function OrganizationSettingsPage() {
             <button
               type="submit"
               disabled={saving}
+              data-tooltip="Save organization profile and branding"
               className="rounded-full bg-accent px-6 py-2.5 text-sm font-medium text-accent-foreground transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
             >
               {saving ? "Saving..." : "Save organization"}
             </button>
             <Link
               href="/dashboard"
+              data-tooltip="Discard changes and return"
               className="rounded-full border border-border bg-surface px-5 py-2.5 text-sm font-medium text-foreground transition hover:bg-surface-muted"
             >
               Cancel

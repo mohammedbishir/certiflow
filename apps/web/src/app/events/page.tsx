@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { toast } from "react-toastify";
 import { AppShell } from "@/components/app-shell";
 import { useConfirm } from "@/components/confirm-modal";
+import { InfoTip } from "@/components/tooltip";
 import { getAccessToken } from "@/lib/auth";
 import {
   activateEvent,
@@ -114,17 +115,21 @@ export default function EventsPage() {
   return (
     <AppShell
       title="Events"
-      subtitle="Create workshops and share participant registration links."
+      subtitle="Workshops and sports meets — registration links and certificates."
       actions={
         <>
           <Link
             href="/dashboard"
+            data-tooltip="Back to dashboard"
+            data-tooltip-pos="bottom"
             className="inline-flex h-10 items-center rounded-full border border-border bg-surface px-4 text-sm font-medium text-foreground transition hover:bg-surface-muted"
           >
             Dashboard
           </Link>
           <Link
             href="/events/new"
+            data-tooltip="Create a workshop or sports meet"
+            data-tooltip-pos="bottom"
             className="inline-flex h-10 items-center rounded-full bg-accent px-4 text-sm font-medium text-accent-foreground transition hover:opacity-90"
           >
             New event
@@ -136,10 +141,11 @@ export default function EventsPage() {
         <div className="rounded-2xl border border-dashed border-border bg-surface px-6 py-16 text-center shadow-[var(--shadow)]">
           <p className="text-lg font-semibold text-foreground">No events yet</p>
           <p className="mt-2 text-sm text-muted">
-            Create your first workshop or seminar to start issuing certificates.
+            Create your first workshop or sports meet to start issuing certificates.
           </p>
           <Link
             href="/events/new"
+            data-tooltip="Start a new event"
             className="mt-6 inline-flex rounded-full bg-accent px-5 py-2.5 text-sm font-medium text-accent-foreground"
           >
             Create event
@@ -164,9 +170,25 @@ export default function EventsPage() {
                           ? "bg-accent/15 text-accent"
                           : "bg-surface-muted text-muted"
                       }`}
+                      data-tooltip={
+                        event.status === "ACTIVE"
+                          ? "Open for participant registration"
+                          : "Registration is closed"
+                      }
                     >
                       {event.status}
                     </span>
+                    <span
+                      className="rounded-full bg-surface-muted px-2.5 py-1 text-xs font-medium text-muted"
+                      data-tooltip={
+                        event.kind === "SPORTS_MEET"
+                          ? "Many games · 1st / 2nd / 3rd certificates per game"
+                          : "One certificate per registered participant"
+                      }
+                    >
+                      {event.kind === "SPORTS_MEET" ? "Sports meet" : "Workshop"}
+                    </span>
+                    <InfoTip text="Manage registration, participants, and certificates for this event" />
                   </div>
                   <p className="mt-2 text-sm text-muted">
                     {formatDate(event.date)}
@@ -187,18 +209,21 @@ export default function EventsPage() {
                   <button
                     type="button"
                     onClick={() => copyRegistrationLink(event.registrationToken)}
+                    data-tooltip="Copy public registration URL"
                     className="rounded-full border border-border px-3.5 py-2 text-sm font-medium text-foreground hover:bg-surface-muted"
                   >
                     Copy link
                   </button>
                   <Link
                     href={`/events/${event.id}`}
+                    data-tooltip="Open event details"
                     className="rounded-full border border-border px-3.5 py-2 text-sm font-medium text-foreground hover:bg-surface-muted"
                   >
                     View
                   </Link>
                   <Link
                     href={`/events/${event.id}/edit`}
+                    data-tooltip="Edit event details"
                     className="rounded-full border border-border px-3.5 py-2 text-sm font-medium text-foreground hover:bg-surface-muted"
                   >
                     Edit
@@ -206,6 +231,11 @@ export default function EventsPage() {
                   <button
                     type="button"
                     onClick={() => onToggleStatus(event)}
+                    data-tooltip={
+                      event.status === "ACTIVE"
+                        ? "Close registration"
+                        : "Open registration (requires a template)"
+                    }
                     className="rounded-full border border-border px-3.5 py-2 text-sm font-medium text-foreground hover:bg-surface-muted"
                   >
                     {event.status === "ACTIVE" ? "Deactivate" : "Activate"}
@@ -213,6 +243,7 @@ export default function EventsPage() {
                   <button
                     type="button"
                     onClick={() => onDelete(event)}
+                    data-tooltip="Permanently delete this event"
                     className="rounded-full border border-border px-3.5 py-2 text-sm font-medium text-danger hover:bg-danger-soft"
                   >
                     Delete

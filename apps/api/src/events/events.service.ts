@@ -3,7 +3,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { EventStatus } from '@prisma/client';
+import { EventKind, EventStatus, Placement } from '@prisma/client';
 import { randomBytes } from 'crypto';
 import { CertificatesService } from '../certificates/certificates.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
@@ -20,6 +20,7 @@ const eventSelect = {
   location: true,
   registrationToken: true,
   status: true,
+  kind: true,
   createdAt: true,
   updatedAt: true,
   template: {
@@ -34,6 +35,7 @@ const eventSelect = {
   _count: {
     select: {
       participants: true,
+      games: true,
     },
   },
 } as const;
@@ -96,6 +98,7 @@ export class EventsService {
         date: new Date(dto.date),
         location: dto.location,
         status: requestedStatus,
+        kind: dto.kind ?? EventKind.WORKSHOP,
         registrationToken: this.createRegistrationToken(),
       },
       select: eventSelect,
@@ -138,6 +141,7 @@ export class EventsService {
         date: dto.date ? new Date(dto.date) : undefined,
         location: dto.location,
         status: statusToSave,
+        kind: dto.kind,
         templateId: dto.templateId === undefined ? undefined : dto.templateId,
       },
       select: eventSelect,
@@ -253,8 +257,10 @@ export class EventsService {
             },
           },
           include: {
-            certificate: {
+            certificates: {
+              where: { gameResultId: null },
               select: { certificateNumber: true },
+              take: 1,
             },
           },
         });
@@ -266,7 +272,7 @@ export class EventsService {
             email,
             status: 'skipped',
             message: 'Already registered for this event',
-            certificateNumber: existing.certificate?.certificateNumber,
+            certificateNumber: existing.certificates[0]?.certificateNumber,
           });
           continue;
         }
@@ -279,6 +285,18 @@ export class EventsService {
             phone: row.phone || null,
           },
         });
+
+        // Sports meets: roster only — certificates come from game results.
+        if (event.kind === EventKind.SPORTS_MEET) {
+          created += 1;
+          results.push({
+            row: row.row,
+            email,
+            status: 'created',
+            message: 'Athlete added to roster (no certificate yet)',
+          });
+          continue;
+        }
 
         const certificate =
           await this.certificatesService.issueForParticipant(participant.id);
@@ -416,6 +434,297 @@ export class EventsService {
     if (!template) {
       throw new BadRequestException('Invalid or inactive template');
     }
+  }
+
+  async listGames(organizationId: string, eventId: string) {
+    await this.findOne(organizationId, eventId);
+    return this.prisma.eventGame.findMany({
+      where: { eventId },
+      include: {
+        _count: { select: { results: true } },
+        results: {
+          include: {
+            participant: {
+              select: { id: true, fullName: true, email: true },
+            },
+            certificate: {
+              select: {
+                id: true,
+                certificateNumber: true,
+                status: true,
+              },
+            },
+          },
+          orderBy: { placement: 'asc' },
+        },
+      },
+      orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
+    });
+  }
+
+  async createGame(
+    organizationId: string,
+    eventId: string,
+    dto: { name: string; category?: string; sortOrder?: number },
+  ) {
+    const event = await this.findOne(organizationId, eventId);
+    if (event.kind !== EventKind.SPORTS_MEET) {
+      throw new BadRequestException(
+        'Games are only available on Sports Meet events',
+      );
+    }
+
+    const game = await this.prisma.eventGame.create({
+      data: {
+        eventId,
+        name: dto.name.trim(),
+        category: dto.category?.trim() || null,
+        sortOrder: dto.sortOrder ?? 0,
+      },
+    });
+
+    return { message: 'Game added', game };
+  }
+
+  async updateGame(
+    organizationId: string,
+    eventId: string,
+    gameId: string,
+    dto: { name?: string; category?: string | null; sortOrder?: number },
+  ) {
+    await this.assertGame(organizationId, eventId, gameId);
+    const game = await this.prisma.eventGame.update({
+      where: { id: gameId },
+      data: {
+        name: dto.name?.trim(),
+        category:
+          dto.category === undefined
+            ? undefined
+            : dto.category?.trim() || null,
+        sortOrder: dto.sortOrder,
+      },
+    });
+    return { message: 'Game updated', game };
+  }
+
+  async deleteGame(organizationId: string, eventId: string, gameId: string) {
+    await this.assertGame(organizationId, eventId, gameId);
+    await this.prisma.eventGame.delete({ where: { id: gameId } });
+    return { message: 'Game deleted' };
+  }
+
+  async upsertGameResult(
+    organizationId: string,
+    eventId: string,
+    gameId: string,
+    dto: {
+      email: string;
+      fullName?: string;
+      placement: Placement;
+      teamLabel?: string;
+      issueCertificate?: boolean;
+    },
+  ) {
+    await this.assertGame(organizationId, eventId, gameId);
+    const email = dto.email.toLowerCase().trim();
+
+    let participant = await this.prisma.participant.findUnique({
+      where: { eventId_email: { eventId, email } },
+    });
+
+    if (!participant) {
+      if (!dto.fullName?.trim()) {
+        throw new BadRequestException(
+          'Athlete not in roster — provide fullName to add them',
+        );
+      }
+      participant = await this.prisma.participant.create({
+        data: {
+          eventId,
+          email,
+          fullName: dto.fullName.trim(),
+        },
+      });
+    }
+
+    const result = await this.prisma.gameResult.upsert({
+      where: {
+        gameId_participantId: {
+          gameId,
+          participantId: participant.id,
+        },
+      },
+      create: {
+        gameId,
+        participantId: participant.id,
+        placement: dto.placement,
+        teamLabel: dto.teamLabel?.trim() || null,
+      },
+      update: {
+        placement: dto.placement,
+        teamLabel: dto.teamLabel?.trim() || null,
+      },
+      include: {
+        participant: {
+          select: { id: true, fullName: true, email: true },
+        },
+        certificate: {
+          select: { id: true, certificateNumber: true, status: true },
+        },
+      },
+    });
+
+    let certificate = result.certificate;
+    if (dto.issueCertificate !== false) {
+      certificate = await this.certificatesService.issueForGameResult(result.id, {
+        regenerate: Boolean(result.certificate),
+      });
+    }
+
+    return {
+      message: certificate
+        ? result.certificate
+          ? 'Result updated and certificate re-issued'
+          : 'Result saved and certificate issued'
+        : 'Result saved',
+      result: { ...result, certificate },
+      certificate,
+    };
+  }
+
+  async importGameResultsCsv(
+    organizationId: string,
+    eventId: string,
+    gameId: string,
+    csv: string,
+  ) {
+    await this.assertGame(organizationId, eventId, gameId);
+    const rows = this.parseResultCsv(csv);
+    if (rows.length === 0) {
+      throw new BadRequestException(
+        'CSV has no valid rows. Expected: fullName,email,placement (1/2/3 or FIRST/SECOND/THIRD)',
+      );
+    }
+
+    const summary = { created: 0, failed: 0, total: rows.length };
+    const results: Array<{
+      row: number;
+      email: string;
+      status: 'created' | 'failed';
+      message: string;
+      certificateNumber?: string;
+    }> = [];
+
+    for (const row of rows) {
+      try {
+        const out = await this.upsertGameResult(organizationId, eventId, gameId, {
+          email: row.email,
+          fullName: row.fullName,
+          placement: row.placement,
+          teamLabel: row.teamLabel,
+          issueCertificate: true,
+        });
+        summary.created += 1;
+        results.push({
+          row: row.row,
+          email: row.email,
+          status: 'created',
+          message: out.message,
+          certificateNumber: out.certificate?.certificateNumber,
+        });
+      } catch (error) {
+        summary.failed += 1;
+        results.push({
+          row: row.row,
+          email: row.email,
+          status: 'failed',
+          message: error instanceof Error ? error.message : 'Failed',
+        });
+      }
+    }
+
+    return {
+      message: 'Game results import finished',
+      summary,
+      results,
+    };
+  }
+
+  private async assertGame(
+    organizationId: string,
+    eventId: string,
+    gameId: string,
+  ) {
+    await this.findOne(organizationId, eventId);
+    const game = await this.prisma.eventGame.findFirst({
+      where: { id: gameId, eventId },
+    });
+    if (!game) {
+      throw new NotFoundException('Game not found');
+    }
+    return game;
+  }
+
+  private parseResultCsv(csv: string) {
+    const lines = csv
+      .split(/\r?\n/)
+      .map((line) => line.trim())
+      .filter(Boolean);
+    if (lines.length < 2) return [];
+
+    const headers = this.splitCsvLine(lines[0]).map((h) =>
+      h.trim().toLowerCase(),
+    );
+    const idx = {
+      fullName: headers.findIndex((h) =>
+        ['fullname', 'name', 'athlete'].includes(h),
+      ),
+      email: headers.findIndex((h) => h === 'email'),
+      placement: headers.findIndex((h) =>
+        ['placement', 'place', 'rank', 'position'].includes(h),
+      ),
+      teamLabel: headers.findIndex((h) =>
+        ['team', 'teamlabel', 'house'].includes(h),
+      ),
+    };
+
+    if (idx.email < 0 || idx.placement < 0) return [];
+
+    const rows: Array<{
+      row: number;
+      fullName?: string;
+      email: string;
+      placement: Placement;
+      teamLabel?: string;
+    }> = [];
+
+    for (let i = 1; i < lines.length; i++) {
+      const cells = this.splitCsvLine(lines[i]);
+      const email = (cells[idx.email] || '').trim().toLowerCase();
+      const placementRaw = (cells[idx.placement] || '').trim();
+      const placement = this.parsePlacement(placementRaw);
+      if (!email || !placement) continue;
+      rows.push({
+        row: i + 1,
+        email,
+        fullName:
+          idx.fullName >= 0 ? cells[idx.fullName]?.trim() : undefined,
+        placement,
+        teamLabel:
+          idx.teamLabel >= 0 ? cells[idx.teamLabel]?.trim() : undefined,
+      });
+    }
+    return rows;
+  }
+
+  private parsePlacement(value: string): Placement | null {
+    const v = value.trim().toUpperCase();
+    if (['1', '1ST', 'FIRST', 'GOLD', 'I'].includes(v)) return Placement.FIRST;
+    if (['2', '2ND', 'SECOND', 'SILVER', 'II'].includes(v))
+      return Placement.SECOND;
+    if (['3', '3RD', 'THIRD', 'BRONZE', 'III'].includes(v))
+      return Placement.THIRD;
+    return null;
   }
 
   private createRegistrationToken() {

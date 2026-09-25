@@ -17,6 +17,17 @@ enum EventStatus {
   INACTIVE
 }
 
+enum EventKind {
+  WORKSHOP
+  SPORTS_MEET
+}
+
+enum Placement {
+  FIRST
+  SECOND
+  THIRD
+}
+
 enum TemplateType {
   PARTICIPATION
   COMPLETION
@@ -44,6 +55,7 @@ model Organization {
   users     User[]
   events    Event[]
   templates CertificateTemplate[]
+  designAssets DesignAsset[]
 }
 
 model User {
@@ -82,6 +94,7 @@ model CertificateTemplate {
 
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   events       Event[]
+  gameTemplates EventGame[] @relation("GameTemplate")
 
   @@index([organizationId])
 }
@@ -96,6 +109,8 @@ model Event {
   location          String?
   registrationToken String      @unique
   status            EventStatus @default(ACTIVE)
+  /** WORKSHOP = one cert per registration; SPORTS_MEET = games + 1st/2nd/3rd */
+  kind              EventKind   @default(WORKSHOP)
   createdAt         DateTime    @default(now())
   updatedAt         DateTime    @updatedAt
 
@@ -103,10 +118,48 @@ model Event {
   template     CertificateTemplate? @relation(fields: [templateId], references: [id], onDelete: SetNull)
   participants Participant[]
   certificates Certificate[]
+  games        EventGame[]
 
   @@index([organizationId])
   @@index([templateId])
   @@index([status])
+  @@index([kind])
+}
+
+model EventGame {
+  id         String   @id @default(cuid())
+  eventId    String
+  name       String
+  category   String?
+  sortOrder  Int      @default(0)
+  templateId String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  event    Event               @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  template CertificateTemplate? @relation("GameTemplate", fields: [templateId], references: [id], onDelete: SetNull)
+  results  GameResult[]
+
+  @@index([eventId])
+  @@index([templateId])
+}
+
+model GameResult {
+  id            String    @id @default(cuid())
+  gameId        String
+  participantId String
+  placement     Placement
+  teamLabel     String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  game          EventGame    @relation(fields: [gameId], references: [id], onDelete: Cascade)
+  participant   Participant  @relation(fields: [participantId], references: [id], onDelete: Cascade)
+  certificate   Certificate?
+
+  @@unique([gameId, participantId])
+  @@index([gameId])
+  @@index([participantId])
 }
 
 model Participant {
@@ -118,8 +171,9 @@ model Participant {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  event       Event        @relation(fields: [eventId], references: [id], onDelete: Cascade)
-  certificate Certificate?
+  event       Event         @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  certificates Certificate[]
+  gameResults GameResult[]
 
   @@unique([eventId, email])
   @@index([eventId])
@@ -129,7 +183,9 @@ model Certificate {
   id                 String            @id @default(cuid())
   certificateNumber  String            @unique
   eventId            String
-  participantId      String            @unique
+  participantId      String
+  /** Set for sports placement certificates; null for workshop participation certs */
+  gameResultId       String?           @unique
   verificationToken  String            @unique
   pdfPath            String
   status             CertificateStatus @default(VALID)
@@ -139,8 +195,27 @@ model Certificate {
 
   event       Event       @relation(fields: [eventId], references: [id], onDelete: Cascade)
   participant Participant @relation(fields: [participantId], references: [id], onDelete: Cascade)
+  gameResult  GameResult? @relation(fields: [gameResultId], references: [id], onDelete: SetNull)
 
   @@index([eventId])
+  @@index([participantId])
   @@index([verificationToken])
+}
+
+/** Reusable uploaded images for the certificate designer (seals, shapes, etc.). */
+model DesignAsset {
+  id             String   @id @default(cuid())
+  organizationId String
+  name           String
+  category       String   @default("seals")
+  url            String
+  removeBg       Boolean  @default(false)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+  @@index([organizationId, category])
 }
 

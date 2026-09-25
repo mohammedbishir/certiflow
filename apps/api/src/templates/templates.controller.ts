@@ -6,6 +6,7 @@ import {
   Param,
   Patch,
   Post,
+  Query,
   Res,
   UploadedFile,
   UseGuards,
@@ -47,6 +48,17 @@ export class TemplatesController {
     return this.templatesService.ensureDefaults(user.organizationId);
   }
 
+  @Get('design-assets')
+  listDesignAssets(
+    @CurrentUser() user: AuthUser,
+    @Query('category') category?: string,
+  ) {
+    return this.templatesService.listDesignAssets(
+      user.organizationId,
+      category,
+    );
+  }
+
   @Post('design-assets')
   @Roles(UserRole.ADMIN)
   @UseInterceptors(
@@ -58,10 +70,29 @@ export class TemplatesController {
   uploadDesignAsset(
     @CurrentUser() user: AuthUser,
     @UploadedFile() file: Express.Multer.File,
+    @Body()
+    body: { name?: string; category?: string; removeBg?: string | boolean },
   ) {
-    return this.templatesService.uploadDesignAsset(
+    const removeBg =
+      body?.removeBg === true ||
+      body?.removeBg === 'true' ||
+      body?.removeBg === '1';
+    return this.templatesService.uploadDesignAsset(user.organizationId, file, {
+      name: body?.name,
+      category: body?.category,
+      removeBg,
+    });
+  }
+
+  @Delete('design-assets/:assetId')
+  @Roles(UserRole.ADMIN)
+  deleteDesignAsset(
+    @CurrentUser() user: AuthUser,
+    @Param('assetId') assetId: string,
+  ) {
+    return this.templatesService.deleteDesignAsset(
       user.organizationId,
-      file,
+      assetId,
     );
   }
 

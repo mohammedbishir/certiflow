@@ -13,6 +13,16 @@ export type CertificateItem = {
     fullName: string;
     email: string;
   };
+  gameResult?: {
+    id: string;
+    placement: "FIRST" | "SECOND" | "THIRD";
+    teamLabel: string | null;
+    game: {
+      id: string;
+      name: string;
+      category: string | null;
+    };
+  } | null;
 };
 
 function authHeaders() {
@@ -70,6 +80,29 @@ export async function restoreCertificate(certificateId: string) {
     {
       method: "PATCH",
       headers: authHeaders(),
+    },
+  );
+  return (await parseResponse(response)) as {
+    message: string;
+    certificate: CertificateItem;
+  };
+}
+
+export async function updateCertificate(
+  certificateId: string,
+  input: {
+    fullName?: string;
+    email?: string;
+    placement?: "FIRST" | "SECOND" | "THIRD";
+    teamLabel?: string | null;
+  },
+) {
+  const response = await fetch(
+    `${getApiBase()}/certificates/${certificateId}`,
+    {
+      method: "PATCH",
+      headers: authHeaders(),
+      body: JSON.stringify(input),
     },
   );
   return (await parseResponse(response)) as {

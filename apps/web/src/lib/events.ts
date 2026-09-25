@@ -2,6 +2,8 @@ import { getAccessToken } from "@/lib/auth";
 import { getApiBase } from "@/lib/api";
 
 export type EventStatus = "ACTIVE" | "INACTIVE";
+export type EventKind = "WORKSHOP" | "SPORTS_MEET";
+export type Placement = "FIRST" | "SECOND" | "THIRD";
 
 export type EventItem = {
   id: string;
@@ -13,6 +15,7 @@ export type EventItem = {
   location: string | null;
   registrationToken: string;
   status: EventStatus;
+  kind?: EventKind;
   createdAt: string;
   updatedAt: string;
   template?: {
@@ -24,6 +27,7 @@ export type EventItem = {
   } | null;
   _count?: {
     participants: number;
+    games?: number;
   };
 };
 
@@ -41,7 +45,29 @@ export type EventInput = {
   date: string;
   location?: string;
   status?: EventStatus;
+  kind?: EventKind;
   templateId?: string | null;
+};
+
+export type GameResultItem = {
+  id: string;
+  placement: Placement;
+  teamLabel: string | null;
+  participant: { id: string; fullName: string; email: string };
+  certificate: {
+    id: string;
+    certificateNumber: string;
+    status: string;
+  } | null;
+};
+
+export type EventGameItem = {
+  id: string;
+  name: string;
+  category: string | null;
+  sortOrder: number;
+  _count?: { results: number };
+  results: GameResultItem[];
 };
 
 export type ImportParticipantsResult = {
@@ -181,4 +207,83 @@ export async function importParticipantsCsv(
 
 export function registrationPath(token: string) {
   return `/register/${token}`;
+}
+
+export async function listEventGames(eventId: string): Promise<EventGameItem[]> {
+  const response = await fetch(`${getApiBase()}/events/${eventId}/games`, {
+    headers: authHeaders(),
+  });
+  return (await parseResponse(response)) as EventGameItem[];
+}
+
+export async function createEventGame(
+  eventId: string,
+  input: { name: string; category?: string },
+) {
+  const response = await fetch(`${getApiBase()}/events/${eventId}/games`, {
+    method: "POST",
+    headers: authHeaders(),
+    body: JSON.stringify(input),
+  });
+  return (await parseResponse(response)) as {
+    message: string;
+    game: EventGameItem;
+  };
+}
+
+export async function deleteEventGame(eventId: string, gameId: string) {
+  const response = await fetch(
+    `${getApiBase()}/events/${eventId}/games/${gameId}`,
+    {
+      method: "DELETE",
+      headers: authHeaders(),
+    },
+  );
+  return (await parseResponse(response)) as { message: string };
+}
+
+export async function upsertGameResult(
+  eventId: string,
+  gameId: string,
+  input: {
+    email: string;
+    fullName?: string;
+    placement: Placement;
+    teamLabel?: string;
+  },
+) {
+  const response = await fetch(
+    `${getApiBase()}/events/${eventId}/games/${gameId}/results`,
+    {
+      method: "POST",
+      headers: authHeaders(),
+      body: JSON.stringify({ ...input, issueCertificate: true }),
+    },
+  );
+  return (await parseResponse(response)) as {
+    message: string;
+    certificate?: { certificateNumber: string };
+  };
+}
+
+export async function importGameResultsCsv(
+  eventId: string,
+  gameId: string,
+  csv: string,
+) {
+  const response = await fetch(
+    `${getApiBase()}/events/${eventId}/games/${gameId}/results/import`,
+    {
+      method: "POST",
+      headers: authHeaders(),
+      body: JSON.stringify({ csv }),
+    },
+  );
+  return (await parseResponse(response)) as ImportParticipantsResult;
+}
+
+export function placementLabel(placement: Placement) {
+  if (placement === "FIRST") return "1st";
+  if (placement === "SECOND") return "2nd";
+  return "3rd";
 }

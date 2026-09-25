@@ -16,7 +16,10 @@ type DesignRole =
   | 'certificateNumber'
   | 'signatoryName'
   | 'signatoryTitle'
-  | 'signature';
+  | 'signature'
+  | 'gameName'
+  | 'placement'
+  | 'teamLabel';
 
 type DesignElement = {
   id: string;
@@ -41,6 +44,8 @@ type DesignElement = {
   path?: string;
   src?: string;
   locked?: boolean;
+  /** Rotation in degrees (clockwise) */
+  rotation?: number;
 };
 
 type CertificateDesign = {
@@ -71,6 +76,9 @@ export type CertificatePdfInput = {
   nameYPercent?: number;
   nameFontSize?: number;
   nameColor?: string;
+  gameName?: string | null;
+  placementLabel?: string | null;
+  teamLabel?: string | null;
 };
 
 @Injectable()
@@ -147,6 +155,12 @@ export class PdfService {
         );
       case 'signature':
         return element.text ?? '';
+      case 'gameName':
+        return input.gameName?.trim() || element.text || '';
+      case 'placement':
+        return input.placementLabel?.trim() || element.text || '';
+      case 'teamLabel':
+        return input.teamLabel?.trim() || element.text || '';
       default:
         return element.text ?? '';
     }
@@ -352,6 +366,21 @@ export class PdfService {
         .fill(design.background || '#ffffff');
 
       for (const el of design.elements) {
+        const w = Math.max(1, el.width ?? (el.type === 'line' ? 100 : 40));
+        const h = Math.max(1, el.height ?? (el.type === 'line' ? 2 : 40));
+        const cx = el.x + w / 2;
+        const cy = el.y + h / 2;
+        const rotation = el.rotation ?? 0;
+        const opacity = el.opacity ?? 1;
+
+        doc.save();
+        if (opacity < 1) {
+          doc.opacity(Math.max(0, Math.min(1, opacity)));
+        }
+        if (rotation) {
+          doc.translate(cx, cy).rotate(rotation).translate(-cx, -cy);
+        }
+
         if (el.type === 'rect') {
           const stroke = el.stroke ?? '#000000';
           const fill = el.fill && el.fill !== 'transparent' ? el.fill : null;
@@ -365,31 +394,36 @@ export class PdfService {
               .stroke(stroke);
           }
         } else if (el.type === 'line') {
+          // Designer treats lines as horizontal rules: width = length,
+          // strokeWidth = thickness. height is only a hit-box (often 2–8),
+          // not an endpoint offset — using it here made lines look crooked.
+          const dx = el.width ?? 0;
+          const dy = el.height ?? 0;
+          const horizontal =
+            Math.abs(dx) >= Math.abs(dy) || Math.abs(dy) <= 8;
           doc
-            .lineWidth(el.strokeWidth ?? 1)
+            .lineWidth(el.strokeWidth ?? 1.5)
             .strokeColor(el.stroke ?? '#9ca3af')
             .moveTo(el.x, el.y)
-            .lineTo(el.x + (el.width ?? 0), el.y + (el.height ?? 0))
+            .lineTo(el.x + dx, horizontal ? el.y : el.y + dy)
             .stroke();
         } else if (el.type === 'ellipse') {
-          const w = el.width ?? 40;
-          const h = el.height ?? 40;
+          const ew = el.width ?? 40;
+          const eh = el.height ?? 40;
           const fill = el.fill && el.fill !== 'transparent' ? el.fill : null;
           if (fill) {
-            doc.ellipse(el.x + w / 2, el.y + h / 2, w / 2, h / 2).fill(fill);
+            doc.ellipse(el.x + ew / 2, el.y + eh / 2, ew / 2, eh / 2).fill(fill);
           }
           if (el.stroke) {
             doc
               .lineWidth(el.strokeWidth ?? 1)
-              .ellipse(el.x + w / 2, el.y + h / 2, w / 2, h / 2)
+              .ellipse(el.x + ew / 2, el.y + eh / 2, ew / 2, eh / 2)
               .stroke(el.stroke);
           }
         } else if (el.type === 'path' && el.path) {
           try {
-            doc.save();
             doc.translate(el.x || 0, el.y || 0);
             doc.path(el.path).fill(el.fill ?? '#111111');
-            doc.restore();
           } catch {
             // ignore invalid paths
           }
@@ -417,34 +451,49 @@ export class PdfService {
           const align = el.align ?? 'left';
           const boxWidth = el.width ?? design.width * 0.7;
 
-          doc
-            .font(this.pickFont(el))
-            .fillColor(color)
-            .fontSize(fontSize)
-            .text(text, el.x, el.y, {
-              width: boxWidth,
-              align,
-              lineGap: 4,
-              height: el.height,
-            });
+          // Measure wrapped height first — PDFKit clips any overflow when
+          // `height` is smaller than the wrapped text (body paragraphs were
+          // truncated mid-sentence in preview/download).
+          doc.font(this.pickFont(el)).fontSize(fontSize);
+          const textOpts = {
+            width: boxWidth,
+            align: align as 'left' | 'center' | 'right',
+            lineGap: 4,
+          };
+          const neededHeight = doc.heightOfString(text, textOpts);
+          const boxHeight = Math.max(el.height ?? 0, neededHeight + 2);
+
+          doc.fillColor(color).text(text, el.x, el.y, {
+            ...textOpts,
+            height: boxHeight,
+          });
         }
+
+        doc.restore();
       }
 
-      const qrSize = 64;
-      doc.image(
-        qrBuffer,
-        design.width - qrSize - 36,
-        design.height - qrSize - 28,
-        {
-          width: qrSize,
-          height: qrSize,
-        },
+      const hasCertNumberEl = design.elements.some(
+        (el) => el.role === 'certificateNumber',
       );
-      doc
-        .font('Helvetica')
-        .fillColor('#6b7280')
-        .fontSize(8)
-        .text(input.certificateNumber, 36, design.height - 36);
+
+      // Keep QR clear of bottom-right L-corner ornaments.
+      const qrSize = 64;
+      const qrX = 36;
+      const qrY = design.height - qrSize - 40;
+      doc.image(qrBuffer, qrX, qrY, {
+        width: qrSize,
+        height: qrSize,
+      });
+
+      // Only print the ID in the footer when the design does not already
+      // include a certificateNumber text element (avoids double "CERT-PREVIEW").
+      if (!hasCertNumberEl) {
+        doc
+          .font('Helvetica')
+          .fillColor('#6b7280')
+          .fontSize(8)
+          .text(input.certificateNumber, qrX + qrSize + 10, design.height - 36);
+      }
 
       doc.end();
       stream.on('finish', () => resolve());

@@ -3,6 +3,7 @@ import {
   type DesignElement,
   type TemplatePreset,
   DESIGN_CANVAS,
+  createBlankDesign,
   normalizeDesign,
 } from "@/lib/certificate-design";
 
@@ -145,10 +146,10 @@ function contentBlock(
     {
       id: "name-line",
       type: "line",
-      x: ax - 240,
-      y: 365,
-      width: 480,
-      height: 2,
+      x: ax - 220,
+      y: 352,
+      width: 440,
+      height: 0,
       stroke: c.accent,
       strokeWidth: 1.5,
     },
@@ -157,7 +158,7 @@ function contentBlock(
       ax,
       ay: 430,
       width: w,
-      height: 52,
+      height: 96,
       text: opts.body,
       fontSize: 14,
       color: c.muted,
@@ -167,7 +168,7 @@ function contentBlock(
     textEl({
       id: "event-name",
       ax,
-      ay: 495,
+      ay: 545,
       width: 520,
       text: "Event Name",
       fontSize: 18,
@@ -193,7 +194,7 @@ function contentBlock(
       x: ax - 360,
       y: 660,
       width: 160,
-      height: 2,
+      height: 0,
       stroke: c.primary,
       strokeWidth: 1,
     },
@@ -226,7 +227,7 @@ function contentBlock(
       x: ax + 200,
       y: 660,
       width: 160,
-      height: 2,
+      height: 0,
       stroke: c.primary,
       strokeWidth: 1,
     },
@@ -522,53 +523,55 @@ function buildLayout(
   }
 
   if (layout === "soft-waves") {
-    // Elegant gold L-corners (reference style) — no oversized blobs over text.
+    // Elegant gold L-corners — arms meet at the corner; leave QR clear on left.
+    const inset = 48;
+    const arm = 168;
+    const thick = 3;
     deco.push(
       {
         id: "corner-tl-h",
         type: "rect",
-        x: 56,
-        y: 56,
-        width: 210,
-        height: 3,
+        x: inset,
+        y: inset,
+        width: arm,
+        height: thick,
         fill: c.accent,
       },
       {
         id: "corner-tl-v",
         type: "rect",
-        x: 56,
-        y: 56,
-        width: 3,
-        height: 210,
+        x: inset,
+        y: inset,
+        width: thick,
+        height: arm,
         fill: c.accent,
       },
       {
         id: "corner-br-h",
         type: "rect",
-        x: W - 266,
-        y: H - 59,
-        width: 210,
-        height: 3,
+        x: W - inset - arm,
+        y: H - inset - thick,
+        width: arm,
+        height: thick,
         fill: c.accent,
       },
       {
         id: "corner-br-v",
         type: "rect",
-        x: W - 59,
-        y: H - 266,
-        width: 3,
-        height: 210,
+        x: W - inset - thick,
+        y: H - inset - arm,
+        width: thick,
+        height: arm,
         fill: c.accent,
       },
       {
-        id: "accent-dot",
-        type: "ellipse",
-        x: 545,
-        y: 52,
-        width: 32,
-        height: 32,
-        fill: c.accent,
-        opacity: 0.85,
+        id: "seal",
+        type: "icon",
+        iconId: "seal-ribbon",
+        x: W - 150,
+        y: 42,
+        width: 88,
+        height: 100,
       },
     );
   }
@@ -690,7 +693,7 @@ function buildLayout(
         x: 120,
         y: 70,
         width: W - 240,
-        height: 2,
+        height: 0,
         stroke: c.accent,
         strokeWidth: 2,
       },
@@ -700,7 +703,7 @@ function buildLayout(
         x: 120,
         y: H - 70,
         width: W - 240,
-        height: 2,
+        height: 0,
         stroke: c.accent,
         strokeWidth: 2,
       },
@@ -1182,28 +1185,51 @@ const SPECS: PresetSpec[] = [
   },
 ];
 
-export const DEFAULT_TEMPLATE_DEFS: DefaultTemplateDef[] = SPECS.map((spec) => ({
-  id: spec.id,
-  name: spec.name,
-  description: spec.description,
-  thumbClass: spec.id,
-  templateType: spec.templateType,
-  titleText: spec.titleText,
+const BLANK_TEMPLATE_DEF: DefaultTemplateDef = {
+  id: "blank-canvas",
+  name: "Blank canvas",
+  description: "Start from scratch — empty white page",
+  thumbClass: "blank",
+  templateType: "COMPLETION",
+  titleText: "Certificate",
   subtitleText: "This is to certify that",
-  bodyText: spec.bodyText,
-  nameColor: spec.colors.name,
-  thumb: spec.thumb,
-  create: () =>
-    buildLayout(spec.layout, spec.colors, {
-      title: spec.titleText.toUpperCase().includes("CERTIFICATE")
-        ? spec.titleText.replace(/^Certificate of /i, "CERTIFICATE OF ").toUpperCase()
-        : spec.titleText.toUpperCase(),
-      subtitle: spec.subtitleText,
-      body: spec.bodyText,
-    }),
-}));
+  bodyText: "",
+  nameColor: "#111827",
+  thumb: { bg: "#ffffff", border: "#d1d5db", accent: "#f3f4f6" },
+  create: () => createBlankDesign(),
+};
 
-/** Designer preset list (20 attractive defaults). */
+export const DEFAULT_TEMPLATE_DEFS: DefaultTemplateDef[] = [
+  BLANK_TEMPLATE_DEF,
+  ...SPECS.map((spec) => ({
+    id: spec.id,
+    name: spec.name,
+    description: spec.description,
+    thumbClass: spec.id,
+    templateType: spec.templateType,
+    titleText: spec.titleText,
+    subtitleText: "This is to certify that",
+    bodyText: spec.bodyText,
+    nameColor: spec.colors.name,
+    thumb: spec.thumb,
+    create: () => {
+      // Classic split: big "CERTIFICATE" + small "OF APPRECIATION" (not both full phrases).
+      const ofLine = spec.subtitleText.startsWith("OF ")
+        ? spec.subtitleText
+        : spec.titleText
+            .replace(/^Certificate\s+/i, "")
+            .toUpperCase()
+            .replace(/^OF\s+/i, "OF ");
+      return buildLayout(spec.layout, spec.colors, {
+        title: "CERTIFICATE",
+        subtitle: ofLine.startsWith("OF ") ? ofLine : `OF ${ofLine}`,
+        body: spec.bodyText,
+      });
+    },
+  })),
+];
+
+/** Designer preset list (blank + 20 attractive defaults). */
 export const TEMPLATE_PRESETS: TemplatePreset[] = DEFAULT_TEMPLATE_DEFS.map(
   ({ id, name, description, thumbClass, create }) => ({
     id,

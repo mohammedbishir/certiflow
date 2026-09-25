@@ -1,4 +1,5 @@
 import {
+  Body,
   Controller,
   Get,
   Param,
@@ -14,6 +15,7 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard.js';
 import { RolesGuard } from '../auth/guards/roles.guard.js';
 import type { AuthUser } from '../auth/types/auth-user.type.js';
 import { CertificatesService } from './certificates.service.js';
+import { UpdateCertificateDto } from './dto/update-certificate.dto.js';
 
 @Controller()
 export class CertificatesController {
@@ -44,6 +46,17 @@ export class CertificatesController {
     @Param('eventId') eventId: string,
   ) {
     return this.certificatesService.listByEvent(user.organizationId, eventId);
+  }
+
+  @Patch('certificates/:id')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN)
+  update(
+    @CurrentUser() user: AuthUser,
+    @Param('id') id: string,
+    @Body() dto: UpdateCertificateDto,
+  ) {
+    return this.certificatesService.update(user.organizationId, id, dto);
   }
 
   @Patch('certificates/:id/revoke')

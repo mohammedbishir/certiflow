@@ -60,6 +60,7 @@ export function ConfirmModal({
             type="button"
             disabled={busy}
             onClick={onCancel}
+            data-tooltip="Cancel this action"
             className="inline-flex h-10 items-center rounded-full border border-border px-5 text-sm font-medium text-foreground hover:bg-surface-muted disabled:opacity-60"
           >
             {cancelLabel}
@@ -68,6 +69,7 @@ export function ConfirmModal({
             type="button"
             disabled={busy}
             onClick={onConfirm}
+            data-tooltip="Confirm this action"
             className={`inline-flex h-10 items-center rounded-full px-5 text-sm font-medium disabled:opacity-60 ${
               tone === "danger"
                 ? "bg-red-600 text-white hover:bg-red-700"

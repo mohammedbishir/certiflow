@@ -54,8 +54,13 @@ export default function PublicRegisterPage() {
         phone: form.phone.trim() || undefined,
       });
       setSuccessName(result.participant.fullName);
-      setCertificateNumber(result.certificate.certificateNumber);
-      setDownloadUrl(`/backend${result.certificate.downloadUrl}`);
+      if (result.certificate) {
+        setCertificateNumber(result.certificate.certificateNumber);
+        setDownloadUrl(`/backend${result.certificate.downloadUrl}`);
+      } else {
+        setCertificateNumber(null);
+        setDownloadUrl(null);
+      }
       toast.success(result.message);
     } catch (err) {
       const message =
@@ -97,6 +102,11 @@ export default function PublicRegisterPage() {
             {certificateNumber ? (
               <p className="mt-2 text-sm text-muted">
                 Certificate ID: {certificateNumber}
+              </p>
+            ) : event.kind === "SPORTS_MEET" ? (
+              <p className="mt-3 text-sm text-muted">
+                Certificates are issued after results are recorded (1st / 2nd /
+                3rd place per game).
               </p>
             ) : null}
             {downloadUrl ? (
@@ -175,9 +185,18 @@ export default function PublicRegisterPage() {
               <button
                 type="submit"
                 disabled={submitting}
+                data-tooltip={
+                  event.kind === "SPORTS_MEET"
+                    ? "Join the sports meet roster"
+                    : "Submit registration and receive your certificate"
+                }
                 className="w-full rounded-full bg-accent px-5 py-2.5 text-sm font-medium text-accent-foreground transition hover:opacity-90 disabled:opacity-60"
               >
-                {submitting ? "Submitting..." : "Get certificate access"}
+                {submitting
+                  ? "Submitting..."
+                  : event.kind === "SPORTS_MEET"
+                    ? "Register for sports meet"
+                    : "Get certificate access"}
               </button>
             </form>
           </div>

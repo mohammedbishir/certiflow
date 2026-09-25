@@ -11,6 +11,8 @@ export function ThemeToggle() {
       type="button"
       onClick={toggleTheme}
       aria-label={isDark ? "Switch to light theme" : "Switch to dark theme"}
+      data-tooltip={isDark ? "Switch to light mode" : "Switch to dark mode"}
+      data-tooltip-pos="bottom"
       className="inline-flex h-10 items-center gap-2 rounded-full border border-border bg-surface px-3.5 text-sm font-medium text-foreground transition hover:bg-surface-muted"
     >
       {isDark ? (
