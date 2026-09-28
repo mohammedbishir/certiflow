@@ -140,7 +140,7 @@ export function TemplateCanvasEditor({
 
   if (!pdfUrl) {
     return (
-      <div className="rounded-2xl border border-dashed border-border bg-background px-6 py-16 text-center">
+      <div className="rounded-2xl border border-dashed border-border bg-background px-4 sm:px-6 py-16 text-center">
         <p className="text-base font-medium text-foreground">
           Upload a designer PDF to open the visual editor
         </p>

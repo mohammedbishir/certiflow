@@ -239,7 +239,7 @@ export default function EditTemplatePage() {
 
   if (loading) {
     return (
-      <div className="page-shell flex flex-1 items-center justify-center px-6">
+      <div className="page-shell flex flex-1 items-center justify-center px-4 sm:px-6">
         <p className="text-muted">Loading template...</p>
       </div>
     );
@@ -264,7 +264,7 @@ export default function EditTemplatePage() {
       <div className="grid gap-6 xl:grid-cols-[0.9fr_1.4fr]">
         <form
           onSubmit={onSubmit}
-          className="space-y-4 rounded-2xl border border-border bg-surface p-6 shadow-[var(--shadow)]"
+          className="space-y-4 rounded-2xl border border-border bg-surface p-4 sm:p-6 shadow-[var(--shadow)]"
         >
           <label className="block">
             <span className="mb-1.5 block text-sm font-medium text-foreground">

@@ -180,14 +180,14 @@ export function SportsGamesPanel({ eventId, onCertificatesChanged }: Props) {
 
   if (loading) {
     return (
-      <section className="rounded-2xl border border-border bg-surface p-6 shadow-[var(--shadow)]">
+      <section className="rounded-2xl border border-border bg-surface p-4 sm:p-6 shadow-[var(--shadow)]">
         <p className="text-sm text-muted">Loading games...</p>
       </section>
     );
   }
 
   return (
-    <section className="rounded-2xl border border-border bg-surface p-6 shadow-[var(--shadow)]">
+    <section className="rounded-2xl border border-border bg-surface p-4 sm:p-6 shadow-[var(--shadow)]">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <p className="text-sm font-medium text-accent">

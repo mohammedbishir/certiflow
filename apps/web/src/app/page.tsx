@@ -4,14 +4,14 @@ import { ThemeToggle } from "@/components/theme-toggle";
 export default function Home() {
   return (
     <div className="page-shell flex flex-1 flex-col">
-      <div className="flex items-center justify-between px-6 py-4">
+      <div className="flex items-center justify-between px-4 sm:px-6 py-4">
         <p className="text-lg font-semibold tracking-tight text-foreground">
           CertiFlow
         </p>
         <ThemeToggle />
       </div>
 
-      <main className="mx-auto flex w-full max-w-3xl flex-1 flex-col justify-center px-6 pb-20">
+      <main className="mx-auto flex w-full max-w-3xl flex-1 flex-col justify-center px-4 sm:px-6 pb-20">
         <p className="text-sm font-medium uppercase tracking-[0.18em] text-accent">
           Digital certificates
         </p>

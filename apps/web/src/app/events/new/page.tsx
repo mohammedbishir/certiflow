@@ -96,7 +96,7 @@ export default function NewEventPage() {
     >
       <form
         onSubmit={onSubmit}
-        className="max-w-2xl space-y-4 rounded-2xl border border-border bg-surface p-6 shadow-[var(--shadow)] md:p-8"
+        className="max-w-2xl space-y-4 rounded-2xl border border-border bg-surface p-4 sm:p-6 shadow-[var(--shadow)] md:p-8"
       >
         <label className="block">
           <span className="mb-1.5 block text-sm font-medium text-foreground">

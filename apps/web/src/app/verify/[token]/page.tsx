@@ -32,7 +32,7 @@ export default function VerifyCertificatePage() {
 
   return (
     <div className="page-shell flex min-h-full flex-1 flex-col">
-      <div className="flex items-center justify-between px-6 py-4">
+      <div className="flex items-center justify-between px-4 sm:px-6 py-4">
         <Link
           href="/"
           className="text-lg font-semibold tracking-tight text-foreground"
@@ -42,11 +42,11 @@ export default function VerifyCertificatePage() {
         <ThemeToggle />
       </div>
 
-      <main className="mx-auto flex w-full max-w-xl flex-1 flex-col justify-center px-6 pb-16">
+      <main className="mx-auto flex w-full max-w-xl flex-1 flex-col justify-center px-4 sm:px-6 pb-16">
         {loading ? (
           <p className="text-center text-muted">Verifying certificate...</p>
         ) : error ? (
-          <div className="rounded-2xl border border-border bg-surface p-8 text-center shadow-[var(--shadow)]">
+          <div className="rounded-2xl border border-border bg-surface p-5 sm:p-8 text-center shadow-[var(--shadow)]">
             <p className="text-sm font-medium text-red-600 dark:text-red-400">
               Invalid
             </p>
@@ -56,7 +56,7 @@ export default function VerifyCertificatePage() {
             <p className="mt-3 text-muted">{error}</p>
           </div>
         ) : result ? (
-          <div className="rounded-2xl border border-border bg-surface p-8 shadow-[var(--shadow)]">
+          <div className="rounded-2xl border border-border bg-surface p-5 sm:p-8 shadow-[var(--shadow)]">
             <p
               className={`text-sm font-medium ${
                 result.valid

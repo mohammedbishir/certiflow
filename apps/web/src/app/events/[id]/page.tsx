@@ -399,7 +399,7 @@ export default function EventDetailPage() {
 
   if (loading || !event) {
     return (
-      <div className="page-shell flex flex-1 items-center justify-center px-6">
+      <div className="page-shell flex flex-1 items-center justify-center px-4 sm:px-6">
         <p className="text-muted">Loading event...</p>
       </div>
     );
@@ -458,7 +458,7 @@ export default function EventDetailPage() {
         ) : null}
 
         <div className="grid gap-6 lg:grid-cols-[1.4fr_0.8fr]">
-          <section className="rounded-2xl border border-border bg-surface p-6 shadow-[var(--shadow)] md:p-8">
+          <section className="rounded-2xl border border-border bg-surface p-4 sm:p-6 shadow-[var(--shadow)] md:p-8">
             <div className="flex flex-wrap items-start justify-between gap-4">
               <div>
                 <div className="flex flex-wrap items-center gap-2">
@@ -577,7 +577,7 @@ export default function EventDetailPage() {
           </section>
 
           <aside className="space-y-4">
-            <div className="rounded-2xl border border-border bg-surface p-6 shadow-[var(--shadow)]">
+            <div className="rounded-2xl border border-border bg-surface p-4 sm:p-6 shadow-[var(--shadow)]">
               <p className="text-sm font-medium text-accent">
                 Registration
                 <InfoTip text="Share this link so participants can register themselves" />
@@ -627,7 +627,7 @@ export default function EventDetailPage() {
               </div>
             </div>
 
-            <div className="rounded-2xl border border-border bg-surface p-6 shadow-[var(--shadow)]">
+            <div className="rounded-2xl border border-border bg-surface p-4 sm:p-6 shadow-[var(--shadow)]">
               <p className="text-sm font-medium text-accent">
                 Bulk import
                 <InfoTip text="Import many participants at once from a CSV file" />
@@ -693,7 +693,7 @@ export default function EventDetailPage() {
           />
         ) : null}
 
-        <section className="rounded-2xl border border-border bg-surface p-6 shadow-[var(--shadow)]">
+        <section className="rounded-2xl border border-border bg-surface p-4 sm:p-6 shadow-[var(--shadow)]">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div className="shrink-0">
               <p className="text-sm font-medium text-accent">
@@ -710,13 +710,13 @@ export default function EventDetailPage() {
                 {event.kind === "SPORTS_MEET" ? "Athlete roster" : "Registrations"}
               </h2>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <input
                 type="search"
                 value={participantQuery}
                 onChange={(e) => setParticipantQuery(e.target.value)}
                 placeholder="Search name, email, phone…"
-                className="h-10 min-w-0 flex-1 rounded-xl border border-border bg-background px-3.5 text-sm text-foreground outline-none ring-accent focus:ring-2 sm:w-64 sm:flex-none"
+                className="h-10 w-full min-w-0 rounded-xl border border-border bg-background px-3.5 text-sm text-foreground outline-none ring-accent focus:ring-2 sm:w-64"
               />
               <button
                 type="button"
@@ -794,7 +794,7 @@ export default function EventDetailPage() {
           )}
         </section>
 
-        <section className="rounded-2xl border border-border bg-surface p-6 shadow-[var(--shadow)]">
+        <section className="rounded-2xl border border-border bg-surface p-4 sm:p-6 shadow-[var(--shadow)]">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div className="shrink-0">
               <p className="text-sm font-medium text-accent">
@@ -805,7 +805,7 @@ export default function EventDetailPage() {
                 Issued certificates
               </h2>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <select
                 value={certStatusFilter}
                 onChange={(e) =>
@@ -824,7 +824,7 @@ export default function EventDetailPage() {
                 value={certQuery}
                 onChange={(e) => setCertQuery(e.target.value)}
                 placeholder="Search name, email, cert #…"
-                className="h-10 min-w-0 flex-1 rounded-xl border border-border bg-background px-3.5 text-sm text-foreground outline-none ring-accent focus:ring-2 sm:w-56 sm:flex-none"
+                className="order-first h-10 w-full min-w-0 rounded-xl border border-border bg-background px-3.5 text-sm text-foreground outline-none ring-accent focus:ring-2 sm:order-none sm:w-56"
               />
               <button
                 type="button"
@@ -986,7 +986,7 @@ export default function EventDetailPage() {
 
       {previewUrl ? (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-6"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-4 sm:p-6"
           onClick={closePreview}
         >
           <div

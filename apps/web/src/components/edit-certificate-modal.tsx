@@ -67,14 +67,14 @@ export function EditCertificateModal({
 
   return (
     <div
-      className="fixed inset-0 z-[60] flex items-center justify-center bg-black/45 p-6"
+      className="fixed inset-0 z-[60] flex items-center justify-center bg-black/45 p-4 sm:p-6"
       role="dialog"
       aria-modal="true"
       aria-labelledby="edit-cert-title"
       onClick={onClose}
     >
       <div
-        className="w-full max-w-md rounded-2xl border border-border bg-surface p-6 shadow-[var(--shadow)]"
+        className="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-2xl border border-border bg-surface p-4 sm:p-6 shadow-[var(--shadow)]"
         onClick={(e) => e.stopPropagation()}
       >
         <p className="text-xs font-medium uppercase tracking-wide text-accent">

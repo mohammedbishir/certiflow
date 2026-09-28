@@ -33,7 +33,7 @@ export function ThemeToggle() {
           />
         </svg>
       )}
-      <span>{isDark ? "Light" : "Dark"}</span>
+      <span className="hidden sm:inline">{isDark ? "Light" : "Dark"}</span>
     </button>
   );
 }

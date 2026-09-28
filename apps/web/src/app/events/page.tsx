@@ -106,7 +106,7 @@ export default function EventsPage() {
 
   if (loading) {
     return (
-      <div className="page-shell flex flex-1 items-center justify-center px-6">
+      <div className="page-shell flex flex-1 items-center justify-center px-4 sm:px-6">
         <p className="text-muted">Loading events...</p>
       </div>
     );
@@ -134,7 +134,7 @@ export default function EventsPage() {
       }
     >
       {events.length === 0 ? (
-        <div className="rounded-2xl border border-dashed border-border bg-surface px-6 py-16 text-center shadow-[var(--shadow)]">
+        <div className="rounded-2xl border border-dashed border-border bg-surface px-4 sm:px-6 py-16 text-center shadow-[var(--shadow)]">
           <p className="text-lg font-semibold text-foreground">No events yet</p>
           <p className="mt-2 text-sm text-muted">
             Create your first workshop or sports meet to start issuing certificates.

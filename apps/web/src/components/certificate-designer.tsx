@@ -100,6 +100,8 @@ function elSize(el: DesignElement) {
   };
 }
 
+const MIN_ZOOM = 0.15;
+
 const HANDLES: ResizeHandle[] = ["nw", "n", "ne", "e", "se", "s", "sw", "w"];
 
 function cloneDesign(d: CertificateDesign): CertificateDesign {
@@ -143,6 +145,7 @@ export function CertificateDesigner({
   const signatureFileRef = useRef<HTMLInputElement>(null);
   const sealFileRef = useRef<HTMLInputElement>(null);
   const canvasRef = useRef<HTMLDivElement>(null);
+  const stageRef = useRef<HTMLDivElement>(null);
   const pastRef = useRef<CertificateDesign[]>([]);
   const futureRef = useRef<CertificateDesign[]>([]);
   const dragRef = useRef<{
@@ -293,6 +296,25 @@ export function CertificateDesigner({
     },
     [design.height, design.width, selected, updateElement],
   );
+
+  useEffect(() => {
+    const stage = stageRef.current;
+    if (!stage) return;
+    const style = getComputedStyle(stage);
+    const padX =
+      parseFloat(style.paddingLeft) + parseFloat(style.paddingRight);
+    const padY =
+      parseFloat(style.paddingTop) + parseFloat(style.paddingBottom);
+    const fit = Math.min(
+      (stage.clientWidth - padX) / design.width,
+      (stage.clientHeight - padY) / design.height,
+    );
+    if (fit > 0) {
+      setZoom(Math.max(MIN_ZOOM, Math.min(0.58, Math.floor(fit * 100) / 100)));
+    }
+    // Fit once on mount; afterwards zoom is user-controlled.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     void listDesignAssets()
@@ -1741,9 +1763,17 @@ export function CertificateDesigner({
 
         <main className="designer-stage-wrap">
           <div
+            ref={stageRef}
             className="designer-stage"
             onPointerDown={() => setSelectedId(null)}
           >
+            <div
+              className="designer-canvas-frame"
+              style={{
+                width: design.width * zoom,
+                height: design.height * zoom,
+              }}
+            >
             <div
               ref={canvasRef}
               className="designer-canvas"
@@ -1860,6 +1890,7 @@ export function CertificateDesigner({
                 );
               })}
             </div>
+            </div>
           </div>
 
           <footer className="designer-footer">
@@ -1870,13 +1901,13 @@ export function CertificateDesigner({
             <div className="designer-zoom">
               <button
                 type="button"
-                onClick={() => setZoom((z) => Math.max(0.3, z - 0.05))}
+                onClick={() => setZoom((z) => Math.max(MIN_ZOOM, z - 0.05))}
               >
                 −
               </button>
               <input
                 type="range"
-                min={30}
+                min={MIN_ZOOM * 100}
                 max={100}
                 value={Math.round(zoom * 100)}
                 onChange={(e) => setZoom(Number(e.target.value) / 100)}

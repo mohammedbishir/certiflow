@@ -99,7 +99,7 @@ export default function EditEventPage() {
 
   if (loading) {
     return (
-      <div className="page-shell flex flex-1 items-center justify-center px-6">
+      <div className="page-shell flex flex-1 items-center justify-center px-4 sm:px-6">
         <p className="text-muted">Loading event...</p>
       </div>
     );
@@ -128,7 +128,7 @@ export default function EditEventPage() {
     >
       <form
         onSubmit={onSubmit}
-        className="mx-auto max-w-2xl space-y-4 rounded-2xl border border-border bg-surface p-6 shadow-[var(--shadow)] md:p-8"
+        className="mx-auto max-w-2xl space-y-4 rounded-2xl border border-border bg-surface p-4 sm:p-6 shadow-[var(--shadow)] md:p-8"
       >
         <label className="block">
           <span className="mb-1.5 block text-sm font-medium text-foreground">

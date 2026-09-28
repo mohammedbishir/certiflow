@@ -74,7 +74,7 @@ export default function DashboardPage() {
 
   if (!profile || !stats) {
     return (
-      <div className="page-shell flex flex-1 items-center justify-center px-6">
+      <div className="page-shell flex flex-1 items-center justify-center px-4 sm:px-6">
         <p className="text-muted">Loading dashboard...</p>
       </div>
     );
@@ -160,8 +160,8 @@ export default function DashboardPage() {
       </section>
 
       <section className="mt-6 grid gap-5 lg:grid-cols-[1.4fr_1fr]">
-        <div className="rounded-2xl border border-border bg-surface p-6 shadow-[var(--shadow)]">
-          <div className="flex items-center justify-between gap-3">
+        <div className="rounded-2xl border border-border bg-surface p-4 sm:p-6 shadow-[var(--shadow)]">
+          <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
               <p className="text-sm font-medium text-accent">
                 Recent events
@@ -190,16 +190,16 @@ export default function DashboardPage() {
                 <li key={event.id}>
                   <Link
                     href={`/events/${event.id}`}
-                    className="flex items-center justify-between gap-3 rounded-xl border border-border bg-background px-4 py-3 transition hover:border-accent/40"
+                    className="flex flex-col gap-2 rounded-xl border border-border bg-background px-4 py-3 transition hover:border-accent/40 sm:flex-row sm:items-center sm:justify-between sm:gap-3"
                   >
-                    <div>
-                      <p className="font-medium text-foreground">{event.name}</p>
+                    <div className="min-w-0">
+                      <p className="break-words font-medium text-foreground">{event.name}</p>
                       <p className="mt-0.5 text-sm text-muted">
                         {formatDate(event.date)}
                         {event.location ? ` · ${event.location}` : ""}
                       </p>
                     </div>
-                    <div className="text-right text-xs text-muted">
+                    <div className="text-xs text-muted sm:shrink-0 sm:text-right">
                       <p
                         className={
                           event.status === "ACTIVE"
@@ -221,12 +221,12 @@ export default function DashboardPage() {
           )}
         </div>
 
-        <div className="rounded-2xl border border-border bg-surface p-6 shadow-[var(--shadow)]">
+        <div className="rounded-2xl border border-border bg-surface p-4 sm:p-6 shadow-[var(--shadow)]">
           <p className="text-sm font-medium text-accent">
             Organization
             <InfoTip text="Issuer details used on certificates and registration pages" />
           </p>
-          <h2 className="mt-2 text-2xl font-semibold tracking-tight text-foreground">
+          <h2 className="mt-2 break-words text-xl font-semibold tracking-tight text-foreground sm:text-2xl">
             {profile.organization.name}
           </h2>
           <div className="mt-5 space-y-2 text-sm">

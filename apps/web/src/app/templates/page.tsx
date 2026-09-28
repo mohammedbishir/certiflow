@@ -61,7 +61,7 @@ export default function TemplatesPage() {
 
   if (loading) {
     return (
-      <div className="page-shell flex flex-1 items-center justify-center px-6">
+      <div className="page-shell flex flex-1 items-center justify-center px-4 sm:px-6">
         <p className="text-muted">Loading templates...</p>
       </div>
     );
@@ -89,7 +89,7 @@ export default function TemplatesPage() {
       }
     >
       {templates.length === 0 ? (
-        <div className="rounded-2xl border border-dashed border-border bg-surface px-6 py-16 text-center shadow-[var(--shadow)]">
+        <div className="rounded-2xl border border-dashed border-border bg-surface px-4 sm:px-6 py-16 text-center shadow-[var(--shadow)]">
           <p className="text-lg font-semibold text-foreground">
             Design your first certificate
             <InfoTip text="Templates define how certificates look when issued for an event" />

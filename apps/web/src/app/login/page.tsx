@@ -35,12 +35,12 @@ export default function LoginPage() {
 
   return (
     <div className="page-shell flex flex-1 flex-col">
-      <div className="flex justify-end px-6 py-4">
+      <div className="flex justify-end px-4 sm:px-6 py-4">
         <ThemeToggle />
       </div>
 
-      <main className="flex flex-1 items-center justify-center px-6 pb-16">
-        <div className="w-full max-w-md rounded-2xl border border-border bg-surface p-8 shadow-[var(--shadow)]">
+      <main className="flex flex-1 items-center justify-center px-4 sm:px-6 pb-16">
+        <div className="w-full max-w-md rounded-2xl border border-border bg-surface p-5 sm:p-8 shadow-[var(--shadow)]">
           <Link
             href="/"
             className="text-lg font-semibold tracking-tight text-foreground"

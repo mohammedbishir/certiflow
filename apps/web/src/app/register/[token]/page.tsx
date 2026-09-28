@@ -73,25 +73,25 @@ export default function PublicRegisterPage() {
 
   return (
     <div className="page-shell flex min-h-full flex-1 flex-col">
-      <div className="flex items-center justify-between px-6 py-4">
+      <div className="flex items-center justify-between px-4 sm:px-6 py-4">
         <p className="text-lg font-semibold tracking-tight text-foreground">
           CertiFlow
         </p>
         <ThemeToggle />
       </div>
 
-      <main className="mx-auto flex w-full max-w-xl flex-1 flex-col justify-center px-6 pb-16">
+      <main className="mx-auto flex w-full max-w-xl flex-1 flex-col justify-center px-4 sm:px-6 pb-16">
         {loading ? (
           <p className="text-center text-muted">Loading registration...</p>
         ) : error ? (
-          <div className="rounded-2xl border border-border bg-surface p-8 text-center shadow-[var(--shadow)]">
+          <div className="rounded-2xl border border-border bg-surface p-5 sm:p-8 text-center shadow-[var(--shadow)]">
             <h1 className="text-2xl font-semibold text-foreground">
               Registration unavailable
             </h1>
             <p className="mt-3 text-muted">{error}</p>
           </div>
         ) : successName && event ? (
-          <div className="rounded-2xl border border-border bg-surface p-8 text-center shadow-[var(--shadow)]">
+          <div className="rounded-2xl border border-border bg-surface p-5 sm:p-8 text-center shadow-[var(--shadow)]">
             <p className="text-sm font-medium text-accent">You are registered</p>
             <h1 className="mt-2 text-3xl font-semibold text-foreground">
               Thank you, {successName}
@@ -119,7 +119,7 @@ export default function PublicRegisterPage() {
             ) : null}
           </div>
         ) : event ? (
-          <div className="rounded-2xl border border-border bg-surface p-6 shadow-[var(--shadow)] md:p-8">
+          <div className="rounded-2xl border border-border bg-surface p-4 sm:p-6 shadow-[var(--shadow)] md:p-8">
             <p className="text-sm font-medium text-accent">
               {event.organizationName}
             </p>

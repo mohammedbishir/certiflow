@@ -226,7 +226,7 @@ export default function OrganizationSettingsPage() {
 
   if (loading) {
     return (
-      <div className="page-shell flex flex-1 items-center justify-center px-6">
+      <div className="page-shell flex flex-1 items-center justify-center px-4 sm:px-6">
         <p className="text-muted">Loading organization...</p>
       </div>
     );
@@ -250,7 +250,7 @@ export default function OrganizationSettingsPage() {
     >
       <form onSubmit={onSubmit} className="grid gap-6 lg:grid-cols-[1.5fr_0.9fr]">
         <div className="space-y-6">
-          <section className="rounded-2xl border border-border bg-surface p-6 shadow-[var(--shadow)] md:p-7">
+          <section className="rounded-2xl border border-border bg-surface p-4 sm:p-6 shadow-[var(--shadow)] md:p-7">
             <div className="mb-5 border-b border-border pb-4">
               <p className="text-sm font-medium text-accent">
                 Company profile
@@ -306,7 +306,7 @@ export default function OrganizationSettingsPage() {
             </div>
           </section>
 
-          <section className="rounded-2xl border border-border bg-surface p-6 shadow-[var(--shadow)] md:p-7">
+          <section className="rounded-2xl border border-border bg-surface p-4 sm:p-6 shadow-[var(--shadow)] md:p-7">
             <div className="mb-5 border-b border-border pb-4">
               <p className="text-sm font-medium text-accent">
                 Branding
@@ -414,7 +414,7 @@ export default function OrganizationSettingsPage() {
             </div>
           </section>
 
-          <section className="rounded-2xl border border-border bg-surface p-6 shadow-[var(--shadow)] md:p-7">
+          <section className="rounded-2xl border border-border bg-surface p-4 sm:p-6 shadow-[var(--shadow)] md:p-7">
             <div className="mb-5 border-b border-border pb-4">
               <p className="text-sm font-medium text-accent">
                 Certificate signer
@@ -454,7 +454,7 @@ export default function OrganizationSettingsPage() {
             <button
               type="submit"
               disabled={saving}
-              className="rounded-full bg-accent px-6 py-2.5 text-sm font-medium text-accent-foreground transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+              className="rounded-full bg-accent px-4 sm:px-6 py-2.5 text-sm font-medium text-accent-foreground transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
             >
               {saving ? "Saving..." : "Save organization"}
             </button>
