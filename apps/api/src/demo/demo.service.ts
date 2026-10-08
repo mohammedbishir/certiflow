@@ -148,12 +148,15 @@ export class DemoService {
       },
     });
 
-    for (const person of DEMO_WORKSHOP.participants) {
-      const participant = await this.prisma.participant.create({
-        data: { ...person, eventId: workshop.id },
-      });
-      await this.certificatesService.issueForParticipant(participant.id);
-    }
+    // Parallel: certificate numbers are random, and this keeps the first demo visit quick.
+    await Promise.all(
+      DEMO_WORKSHOP.participants.map(async (person) => {
+        const participant = await this.prisma.participant.create({
+          data: { ...person, eventId: workshop.id },
+        });
+        await this.certificatesService.issueForParticipant(participant.id);
+      }),
+    );
 
     const sports = await this.prisma.event.create({
       data: {
@@ -169,34 +172,39 @@ export class DemoService {
       },
     });
 
-    const athleteIds = new Map<string, string>();
-    for (const athlete of DEMO_SPORTS.athletes) {
-      const participant = await this.prisma.participant.create({
-        data: { ...athlete, eventId: sports.id },
-      });
-      athleteIds.set(athlete.email, participant.id);
-    }
+    const athletes = await Promise.all(
+      DEMO_SPORTS.athletes.map((athlete) =>
+        this.prisma.participant.create({
+          data: { ...athlete, eventId: sports.id },
+        }),
+      ),
+    );
+    const athleteIds = new Map(athletes.map((a) => [a.email, a.id]));
 
-    for (const [index, game] of DEMO_SPORTS.games.entries()) {
-      const created = await this.prisma.eventGame.create({
-        data: {
-          eventId: sports.id,
-          name: game.name,
-          category: game.category,
-          sortOrder: index,
-        },
-      });
-      for (const result of game.results) {
-        const gameResult = await this.prisma.gameResult.create({
+    await Promise.all(
+      DEMO_SPORTS.games.map(async (game, index) => {
+        const created = await this.prisma.eventGame.create({
           data: {
-            gameId: created.id,
-            participantId: athleteIds.get(result.email)!,
-            placement: result.placement,
-            teamLabel: result.teamLabel,
+            eventId: sports.id,
+            name: game.name,
+            category: game.category,
+            sortOrder: index,
           },
         });
-        await this.certificatesService.issueForGameResult(gameResult.id);
-      }
-    }
+        await Promise.all(
+          game.results.map(async (result) => {
+            const gameResult = await this.prisma.gameResult.create({
+              data: {
+                gameId: created.id,
+                participantId: athleteIds.get(result.email)!,
+                placement: result.placement,
+                teamLabel: result.teamLabel,
+              },
+            });
+            await this.certificatesService.issueForGameResult(gameResult.id);
+          }),
+        );
+      }),
+    );
   }
 }
