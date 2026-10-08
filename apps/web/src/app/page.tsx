@@ -35,6 +35,12 @@ export default function Home() {
           >
             Admin login
           </Link>
+          <Link
+            href="/demo"
+            className="inline-flex rounded-full px-5 py-2.5 text-sm font-medium text-accent transition hover:bg-surface-muted"
+          >
+            Product tour →
+          </Link>
         </div>
       </main>
     </div>
