@@ -1,5 +1,6 @@
 import {
   ConflictException,
+  ForbiddenException,
   Injectable,
   UnauthorizedException,
 } from '@nestjs/common';
@@ -10,6 +11,7 @@ import * as bcrypt from 'bcrypt';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { LoginDto } from './dto/login.dto.js';
 import { RegisterDto } from './dto/register.dto.js';
+import { isPlatformAdmin } from './platform-admin.js';
 import type { AuthUser, AuthTokenPayload } from './types/auth-user.type.js';
 
 type AuthTokens = {
@@ -30,7 +32,32 @@ export class AuthService {
     private readonly config: ConfigService,
   ) {}
 
+  getPublicConfig() {
+    return {
+      signupMode: this.signupMode(),
+      demoEnabled: this.config.get<string>('DEMO_ENABLED') === 'true',
+    };
+  }
+
+  /** `approval` (default): anyone can sign up, but issuing waits for the platform owner. */
+  private signupMode(): 'approval' | 'closed' {
+    return this.config.get<string>('SIGNUP_MODE') === 'closed'
+      ? 'closed'
+      : 'approval';
+  }
+
   async register(dto: RegisterDto): Promise<AuthResponse> {
+    if (this.signupMode() === 'closed') {
+      throw new ForbiddenException('New signups are currently closed.');
+    }
+    if (
+      [dto.email, dto.organizationEmail].some((email) =>
+        email.toLowerCase().endsWith('@certiflow.demo'),
+      )
+    ) {
+      throw new ConflictException('This email address is reserved');
+    }
+
     const existingUser = await this.prisma.user.findUnique({
       where: { email: dto.email },
     });
@@ -67,7 +94,10 @@ export class AuthService {
       });
     });
 
-    return this.buildAuthResponse(user, 'Account created successfully');
+    return this.buildAuthResponse(
+      user,
+      'Organization created. You can design templates now; events and certificates unlock once it is approved.',
+    );
   }
 
   async login(dto: LoginDto): Promise<AuthResponse> {
@@ -138,6 +168,8 @@ export class AuthService {
             signatoryName: true,
             signatoryDesignation: true,
             signatureUrl: true,
+            status: true,
+            isDemo: true,
           },
         },
       },
@@ -147,7 +179,11 @@ export class AuthService {
       throw new UnauthorizedException('User not found');
     }
 
-    return user;
+    return { ...user, isPlatformAdmin: isPlatformAdmin(this.config, user) };
+  }
+
+  createSession(user: User, message: string): AuthResponse {
+    return this.buildAuthResponse(user, message);
   }
 
   private buildAuthResponse(user: User, message: string): AuthResponse {

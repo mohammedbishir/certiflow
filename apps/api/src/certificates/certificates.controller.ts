@@ -14,6 +14,7 @@ import { Roles } from '../auth/decorators/roles.decorator.js';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard.js';
 import { RolesGuard } from '../auth/guards/roles.guard.js';
 import type { AuthUser } from '../auth/types/auth-user.type.js';
+import { RateLimit } from '../common/rate-limit.js';
 import { CertificatesService } from './certificates.service.js';
 import { UpdateCertificateDto } from './dto/update-certificate.dto.js';
 
@@ -22,6 +23,7 @@ export class CertificatesController {
   constructor(private readonly certificatesService: CertificatesService) {}
 
   @Get('public/verify/:code')
+  @RateLimit({ name: 'verify', limit: 60, windowMs: 60_000 })
   verify(@Param('code') code: string) {
     return this.certificatesService.verify(code);
   }

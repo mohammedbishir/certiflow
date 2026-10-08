@@ -39,23 +39,37 @@ enum CertificateStatus {
   REVOKED
 }
 
+/** New signups start PENDING; only APPROVED (or demo) orgs can issue certificates. */
+enum OrganizationStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
 model Organization {
-  id                   String   @id @default(cuid())
+  id                   String             @id @default(cuid())
   name                 String
-  email                String   @unique
+  email                String             @unique
   phone                String?
   logo                 String?
   website              String?
   signatoryName        String?
   signatoryDesignation String?
   signatureUrl         String?
-  createdAt            DateTime @default(now())
-  updatedAt            DateTime @updatedAt
+  status               OrganizationStatus @default(PENDING)
+  reviewedAt           DateTime?
+  /** Shared public sandbox: watermarked certificates, branding locked, data reset daily. */
+  isDemo               Boolean            @default(false)
+  demoResetAt          DateTime?
+  createdAt            DateTime           @default(now())
+  updatedAt            DateTime           @updatedAt
 
   users     User[]
   events    Event[]
   templates CertificateTemplate[]
   designAssets DesignAsset[]
+
+  @@index([status])
 }
 
 model User {

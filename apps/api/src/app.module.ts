@@ -1,11 +1,15 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
+import { APP_GUARD } from '@nestjs/core';
 import { AuthModule } from './auth/auth.module.js';
 import { AppController } from './app.controller.js';
 import { AppService } from './app.service.js';
 import { CertificatesModule } from './certificates/certificates.module.js';
+import { RateLimitGuard } from './common/rate-limit.js';
+import { DemoModule } from './demo/demo.module.js';
 import { EventsModule } from './events/events.module.js';
 import { OrganizationsModule } from './organizations/organizations.module.js';
+import { PlatformModule } from './platform/platform.module.js';
 import { PrismaModule } from './prisma/prisma.module.js';
 import { PublicModule } from './public/public.module.js';
 import { TemplatesModule } from './templates/templates.module.js';
@@ -23,8 +27,10 @@ import { TemplatesModule } from './templates/templates.module.js';
     TemplatesModule,
     CertificatesModule,
     PublicModule,
+    PlatformModule,
+    DemoModule,
   ],
   controllers: [AppController],
-  providers: [AppService],
+  providers: [AppService, { provide: APP_GUARD, useClass: RateLimitGuard }],
 })
 export class AppModule {}

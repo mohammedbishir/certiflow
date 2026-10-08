@@ -8,6 +8,7 @@ import { mkdir, unlink, writeFile } from 'fs/promises';
 import path from 'path';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { UpdateOrganizationDto } from './dto/update-organization.dto.js';
+import { assertNotDemo } from './org-access.js';
 
 const organizationSelect = {
   id: true,
@@ -19,6 +20,8 @@ const organizationSelect = {
   signatoryName: true,
   signatoryDesignation: true,
   signatureUrl: true,
+  status: true,
+  isDemo: true,
   createdAt: true,
   updatedAt: true,
 } as const;
@@ -52,7 +55,13 @@ export class OrganizationsService {
     return organization;
   }
 
+  /** Demo branding is fixed so the sandbox can't be dressed up as a real institution. */
+  private async assertBrandingEditable(organizationId: string) {
+    assertNotDemo(await this.getMine(organizationId));
+  }
+
   async updateMine(organizationId: string, dto: UpdateOrganizationDto) {
+    await this.assertBrandingEditable(organizationId);
     if (dto.email) {
       const existing = await this.prisma.organization.findFirst({
         where: {
@@ -88,6 +97,7 @@ export class OrganizationsService {
   }
 
   async uploadLogo(organizationId: string, file?: Express.Multer.File) {
+    await this.assertBrandingEditable(organizationId);
     const url = await this.saveBrandFile(organizationId, file, 'logo');
     const current = await this.getMine(organizationId);
     await this.deleteUploadFile(current.logo);
@@ -105,6 +115,7 @@ export class OrganizationsService {
   }
 
   async clearLogo(organizationId: string) {
+    await this.assertBrandingEditable(organizationId);
     const current = await this.getMine(organizationId);
     await this.deleteUploadFile(current.logo);
 
@@ -121,6 +132,7 @@ export class OrganizationsService {
   }
 
   async uploadSignature(organizationId: string, file?: Express.Multer.File) {
+    await this.assertBrandingEditable(organizationId);
     const url = await this.saveBrandFile(organizationId, file, 'signature');
     const current = await this.getMine(organizationId);
     await this.deleteUploadFile(current.signatureUrl);
@@ -138,6 +150,7 @@ export class OrganizationsService {
   }
 
   async clearSignature(organizationId: string) {
+    await this.assertBrandingEditable(organizationId);
     const current = await this.getMine(organizationId);
     await this.deleteUploadFile(current.signatureUrl);
 

@@ -3,7 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { createWriteStream, existsSync, readFileSync } from 'fs';
 import { mkdir, writeFile } from 'fs/promises';
 import path from 'path';
-import { PDFDocument, rgb, StandardFonts } from 'pdf-lib';
+import { degrees, PDFDocument, rgb, StandardFonts } from 'pdf-lib';
 import PDFDocumentKit from 'pdfkit';
 import QRCode from 'qrcode';
 
@@ -79,6 +79,8 @@ export type CertificatePdfInput = {
   gameName?: string | null;
   placementLabel?: string | null;
   teamLabel?: string | null;
+  /** Diagonal stamp across every page (demo certificates). */
+  watermark?: string | null;
 };
 
 @Injectable()
@@ -97,19 +99,43 @@ export class PdfService {
     const filePath = path.join(dir, fileName);
 
     const design = this.parseDesign(input.designJson);
+    const templatePdfPath = design
+      ? null
+      : this.resolveUploadPath(input.templatePdfUrl);
     if (design) {
       await this.generateFromDesignJson(input, design, filePath);
-      return filePath;
-    }
-
-    const templatePdfPath = this.resolveUploadPath(input.templatePdfUrl);
-    if (templatePdfPath) {
+    } else if (templatePdfPath) {
       await this.generateFromDesignerPdf(input, templatePdfPath, filePath);
-      return filePath;
+    } else {
+      await this.generateWithPdfKit(input, filePath);
     }
 
-    await this.generateWithPdfKit(input, filePath);
+    if (input.watermark) {
+      await this.applyWatermark(filePath, input.watermark);
+    }
     return filePath;
+  }
+
+  private async applyWatermark(filePath: string, text: string) {
+    const pdfDoc = await PDFDocument.load(readFileSync(filePath));
+    const font = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
+    for (const page of pdfDoc.getPages()) {
+      const { width, height } = page.getSize();
+      const angle = (Math.atan2(height, width) * 180) / Math.PI;
+      const size = Math.min(width, height) / 11;
+      const textWidth = font.widthOfTextAtSize(text, size);
+      const rad = (angle * Math.PI) / 180;
+      page.drawText(text, {
+        x: width / 2 - (textWidth / 2) * Math.cos(rad) + (size / 3) * Math.sin(rad),
+        y: height / 2 - (textWidth / 2) * Math.sin(rad) - (size / 3) * Math.cos(rad),
+        size,
+        font,
+        color: rgb(0.86, 0.15, 0.15),
+        opacity: 0.28,
+        rotate: degrees(angle),
+      });
+    }
+    await writeFile(filePath, await pdfDoc.save());
   }
 
   private parseDesign(value: unknown): CertificateDesign | null {

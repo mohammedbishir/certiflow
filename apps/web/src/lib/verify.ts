@@ -3,6 +3,8 @@ import { getApiBase } from "@/lib/api";
 export type VerifyResult = {
   valid: boolean;
   status: "VALID" | "REVOKED";
+  isDemo: boolean;
+  organizationVerified: boolean;
   certificateNumber: string;
   issuedAt: string;
   participantName: string;

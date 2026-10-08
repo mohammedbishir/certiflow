@@ -57,6 +57,13 @@ export default function VerifyCertificatePage() {
           </div>
         ) : result ? (
           <div className="rounded-2xl border border-border bg-surface p-5 sm:p-8 shadow-[var(--shadow)]">
+            {result.isDemo ? (
+              <div className="mb-5 rounded-xl border border-danger/30 bg-danger-soft px-4 py-3 text-sm text-danger">
+                <strong>Demo certificate — not valid.</strong> This was created
+                in the CertiFlow live demo for testing and does not certify
+                anything.
+              </div>
+            ) : null}
             <p
               className={`text-sm font-medium ${
                 result.valid
@@ -64,7 +71,11 @@ export default function VerifyCertificatePage() {
                   : "text-red-600 dark:text-red-400"
               }`}
             >
-              {result.valid ? "Valid certificate" : "Revoked certificate"}
+              {result.isDemo
+                ? "Sample certificate"
+                : result.valid
+                  ? "Valid certificate"
+                  : "Revoked certificate"}
             </p>
             <h1 className="mt-2 text-3xl font-semibold tracking-tight text-foreground">
               {result.participantName}
@@ -73,6 +84,20 @@ export default function VerifyCertificatePage() {
               Issued by <strong>{result.organizationName}</strong> for{" "}
               <strong>{result.eventName}</strong>
             </p>
+            {result.organizationVerified ? (
+              <p className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-emerald-500/15 px-3 py-1 text-xs font-semibold text-emerald-700 dark:text-emerald-300">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden>
+                  <path
+                    d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6ZM9 12l2 2 4-4"
+                    stroke="currentColor"
+                    strokeWidth="1.8"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </svg>
+                Verified organization
+              </p>
+            ) : null}
 
             <dl className="mt-8 space-y-3 text-sm">
               <div className="flex justify-between gap-4 border-b border-border pb-3">
@@ -107,7 +132,7 @@ export default function VerifyCertificatePage() {
               </div>
             </dl>
 
-            {result.valid ? (
+            {result.status === "VALID" ? (
               <a
                 href={`/backend${result.downloadUrl}`}
                 className="mt-8 inline-flex w-full items-center justify-center rounded-full bg-accent px-5 py-2.5 text-sm font-medium text-accent-foreground transition hover:opacity-90"

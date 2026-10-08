@@ -3,12 +3,49 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { CertificateStatus } from '@prisma/client';
+import { CertificateStatus, type OrganizationStatus } from '@prisma/client';
 import { randomBytes } from 'crypto';
 import { createReadStream, existsSync } from 'fs';
 import type { Response } from 'express';
+import { assertCanIssueCertificates } from '../organizations/org-access.js';
 import { PrismaService } from '../prisma/prisma.service.js';
-import { PdfService } from '../pdf/pdf.service.js';
+import { PdfService, type CertificatePdfInput } from '../pdf/pdf.service.js';
+
+type CertificateBuildArgs = {
+  participant: {
+    id: string;
+    fullName: string;
+    eventId: string;
+    event: {
+      name: string;
+      date: Date;
+      location: string | null;
+      organization: {
+        name: string;
+        signatoryName: string | null;
+        signatoryDesignation: string | null;
+        status: OrganizationStatus;
+        isDemo: boolean;
+      };
+    };
+  };
+  template: {
+    titleText: string;
+    subtitleText: string | null;
+    bodyText: string | null;
+    backgroundUrl: string | null;
+    templatePdfUrl: string | null;
+    designJson: unknown;
+    nameXPercent: number;
+    nameYPercent: number;
+    nameFontSize: number;
+    nameColor: string;
+  };
+  gameName: string | null;
+  placementLabel: string | null;
+  teamLabel: string | null;
+  gameResultId: string | null;
+};
 
 @Injectable()
 export class CertificatesService {
@@ -140,66 +177,16 @@ export class CertificatesService {
       verificationToken: string;
       pdfPath: string;
     },
-    args: {
-      participant: {
-        id: string;
-        fullName: string;
-        eventId: string;
-        event: {
-          name: string;
-          date: Date;
-          location: string | null;
-          organization: {
-            name: string;
-            signatoryName: string | null;
-            signatoryDesignation: string | null;
-          };
-        };
-      };
-      template: {
-        titleText: string;
-        subtitleText: string | null;
-        bodyText: string | null;
-        backgroundUrl: string | null;
-        templatePdfUrl: string | null;
-        designJson: unknown;
-        nameXPercent: number;
-        nameYPercent: number;
-        nameFontSize: number;
-        nameColor: string;
-      };
-      gameName: string | null;
-      placementLabel: string | null;
-      teamLabel: string | null;
-      gameResultId: string | null;
-    },
+    args: CertificateBuildArgs,
   ) {
-    const { participant, template } = args;
-    const pdfPath = await this.pdfService.generateCertificatePdf({
-      certificateNumber: existing.certificateNumber,
-      verificationToken: existing.verificationToken,
-      participantName: participant.fullName,
-      eventName: participant.event.name,
-      eventDate: participant.event.date,
-      eventLocation: participant.event.location,
-      organizationName: participant.event.organization.name,
-      signatoryName: participant.event.organization.signatoryName,
-      signatoryDesignation:
-        participant.event.organization.signatoryDesignation,
-      titleText: template.titleText,
-      subtitleText: template.subtitleText ?? 'This is to certify that',
-      bodyText: template.bodyText ?? 'has successfully participated in',
-      backgroundUrl: template.backgroundUrl,
-      templatePdfUrl: template.templatePdfUrl,
-      designJson: template.designJson,
-      nameXPercent: template.nameXPercent,
-      nameYPercent: template.nameYPercent,
-      nameFontSize: template.nameFontSize,
-      nameColor: template.nameColor,
-      gameName: args.gameName,
-      placementLabel: args.placementLabel,
-      teamLabel: args.teamLabel,
-    });
+    assertCanIssueCertificates(args.participant.event.organization);
+    const pdfPath = await this.pdfService.generateCertificatePdf(
+      this.toPdfInput(
+        args,
+        existing.certificateNumber,
+        existing.verificationToken,
+      ),
+    );
 
     return this.prisma.certificate.update({
       where: { id: existing.id },
@@ -211,54 +198,48 @@ export class CertificatesService {
     });
   }
 
-  private async createCertificateRecord(args: {
-    participant: {
-      id: string;
-      fullName: string;
-      eventId: string;
-      event: {
-        name: string;
-        date: Date;
-        location: string | null;
-        organization: {
-          name: string;
-          signatoryName: string | null;
-          signatoryDesignation: string | null;
-        };
-      };
-    };
-    template: {
-      titleText: string;
-      subtitleText: string | null;
-      bodyText: string | null;
-      backgroundUrl: string | null;
-      templatePdfUrl: string | null;
-      designJson: unknown;
-      nameXPercent: number;
-      nameYPercent: number;
-      nameFontSize: number;
-      nameColor: string;
-    };
-    gameName: string | null;
-    placementLabel: string | null;
-    teamLabel: string | null;
-    gameResultId: string | null;
-  }) {
-    const { participant, template } = args;
-    const certificateNumber = await this.createCertificateNumber();
-    const verificationToken = randomBytes(16).toString('hex');
+  private async createCertificateRecord(args: CertificateBuildArgs) {
+    const organization = args.participant.event.organization;
+    assertCanIssueCertificates(organization);
 
-    const pdfPath = await this.pdfService.generateCertificatePdf({
+    const verificationToken = randomBytes(16).toString('hex');
+    const certificateNumber = this.createCertificateNumber(
+      organization.isDemo ? 'DEMO' : 'CERT',
+    );
+
+    const pdfPath = await this.pdfService.generateCertificatePdf(
+      this.toPdfInput(args, certificateNumber, verificationToken),
+    );
+
+    return this.prisma.certificate.create({
+      data: {
+        certificateNumber,
+        verificationToken,
+        pdfPath,
+        eventId: args.participant.eventId,
+        participantId: args.participant.id,
+        gameResultId: args.gameResultId,
+      },
+    });
+  }
+
+  private toPdfInput(
+    args: CertificateBuildArgs,
+    certificateNumber: string,
+    verificationToken: string,
+  ): CertificatePdfInput {
+    const { participant, template } = args;
+    const organization = participant.event.organization;
+    return {
       certificateNumber,
       verificationToken,
       participantName: participant.fullName,
       eventName: participant.event.name,
       eventDate: participant.event.date,
       eventLocation: participant.event.location,
-      organizationName: participant.event.organization.name,
-      signatoryName: participant.event.organization.signatoryName,
-      signatoryDesignation:
-        participant.event.organization.signatoryDesignation,
+      organizationName: organization.name,
+      signatoryName: organization.signatoryName,
+      signatoryDesignation: organization.signatoryDesignation,
       titleText: template.titleText,
       subtitleText: template.subtitleText ?? 'This is to certify that',
       bodyText: template.bodyText ?? 'has successfully participated in',
@@ -272,18 +253,10 @@ export class CertificatesService {
       gameName: args.gameName,
       placementLabel: args.placementLabel,
       teamLabel: args.teamLabel,
-    });
-
-    return this.prisma.certificate.create({
-      data: {
-        certificateNumber,
-        verificationToken,
-        pdfPath,
-        eventId: participant.eventId,
-        participantId: participant.id,
-        gameResultId: args.gameResultId,
-      },
-    });
+      watermark: organization.isDemo
+        ? 'SAMPLE - NOT A VALID CERTIFICATE'
+        : null,
+    };
   }
 
   async getByNumber(certificateNumber: string) {
@@ -319,7 +292,7 @@ export class CertificatesService {
   }
 
   async verify(code: string) {
-    const certificate = code.startsWith('CERT-')
+    const certificate = /^(CERT|DEMO)-/.test(code)
       ? await this.prisma.certificate.findUnique({
           where: { certificateNumber: code },
           include: this.verifyInclude,
@@ -333,9 +306,13 @@ export class CertificatesService {
       throw new NotFoundException('Certificate not found or invalid');
     }
 
+    const organization = certificate.event.organization;
     return {
-      valid: certificate.status === 'VALID',
+      valid: certificate.status === 'VALID' && !organization.isDemo,
       status: certificate.status,
+      isDemo: organization.isDemo,
+      organizationVerified:
+        !organization.isDemo && organization.status === 'APPROVED',
       certificateNumber: certificate.certificateNumber,
       issuedAt: certificate.issuedAt,
       participantName: certificate.participant.fullName,
@@ -361,6 +338,8 @@ export class CertificatesService {
         organization: {
           select: {
             name: true,
+            status: true,
+            isDemo: true,
           },
         },
       },
@@ -657,16 +636,10 @@ export class CertificatesService {
     return certificate;
   }
 
-  private async createCertificateNumber() {
+  /** Random suffix: simultaneous registrations can never collide on a number. */
+  private createCertificateNumber(prefix: 'CERT' | 'DEMO') {
     const year = new Date().getFullYear();
-    const count = await this.prisma.certificate.count({
-      where: {
-        certificateNumber: {
-          startsWith: `CERT-${year}-`,
-        },
-      },
-    });
-    const next = String(count + 1).padStart(6, '0');
-    return `CERT-${year}-${next}`;
+    const suffix = randomBytes(5).toString('hex').toUpperCase();
+    return `${prefix}-${year}-${suffix}`;
   }
 }

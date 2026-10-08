@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import Link from "next/link";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { TryDemoButton } from "@/components/try-demo-button";
 import {
   BrandingMock,
   CertificateMock,
@@ -241,6 +242,9 @@ const FEATURES: {
 ];
 
 const SECURITY = [
+  "New organizations are reviewed before they can issue certificates",
+  "Demo certificates are watermarked and never verify as valid",
+  "Rate limits on sign-in, sign-up and public registration",
   "Passwords hashed with bcrypt",
   "Short-lived JWT access tokens with refresh tokens",
   "Admin and staff roles checked on every API request",
@@ -325,14 +329,18 @@ export default function DemoPage() {
                 workshops and seminars, and full school sports meets with 1st, 2nd and 3rd place across every game.
               </p>
               <div className="flex flex-wrap gap-3">
-                <Link href="/signup" className={primaryButton}>
-                  Create your organization
+                <TryDemoButton className={primaryButton}>
+                  Try the live demo
                   <Icon name="arrow" className="size-4" />
-                </Link>
+                </TryDemoButton>
                 <a href="#features" className={ghostButton}>
                   Explore the features
                 </a>
               </div>
+              <p className="text-sm text-white/60">
+                No signup needed. The demo is a shared sandbox: certificates are
+                watermarked samples and data resets every day.
+              </p>
             </div>
             <div className="relative mx-auto w-full max-w-xl">
               <div className="absolute -inset-4 rotate-2 rounded-2xl bg-teal-300/10" aria-hidden />
@@ -447,7 +455,7 @@ export default function DemoPage() {
             <div className="grid gap-4 sm:grid-cols-2">
               {[
                 { icon: "shield" as const, title: "Role-based access", text: "Admins manage everything; staff help run events." },
-                { icon: "building" as const, title: "Multi-organization", text: "Many schools and companies on one deployment, fully separated." },
+                { icon: "building" as const, title: "Approved issuers only", text: "Every new organization is reviewed before its certificates can verify." },
                 { icon: "qr" as const, title: "Public verification", text: "A QR scan confirms the certificate without logging in." },
                 { icon: "award" as const, title: "Stable numbers", text: "Edits keep the certificate number, so shared links never break." },
               ].map((card) => (
@@ -489,17 +497,18 @@ export default function DemoPage() {
           <span className="flex size-12 items-center justify-center rounded-xl bg-teal-300 text-teal-950">
             <Icon name="award" className="size-6" />
           </span>
-          <h2 className="text-2xl font-semibold tracking-tight sm:text-3xl">Ready to issue your first certificate?</h2>
+          <h2 className="text-2xl font-semibold tracking-tight sm:text-3xl">See it working in one click</h2>
           <p className="max-w-lg text-white/75">
-            Create an organization, design a template and share your first registration link today.
+            Open the live demo to design, issue and verify sample certificates. Running a real school or
+            company? Request access and your organization is reviewed before it can issue certificates.
           </p>
           <div className="flex flex-wrap justify-center gap-3">
-            <Link href="/signup" className={primaryButton}>
-              Create your organization
+            <TryDemoButton className={primaryButton}>
+              Try the live demo
               <Icon name="arrow" className="size-4" />
-            </Link>
-            <Link href="/login" className={ghostButton}>
-              Admin sign in
+            </TryDemoButton>
+            <Link href="/signup" className={ghostButton}>
+              Request access
             </Link>
           </div>
           <p className="text-sm text-white/50">© {new Date().getFullYear()} CertiFlow · Digital certificates</p>

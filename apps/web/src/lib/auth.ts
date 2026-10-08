@@ -96,7 +96,27 @@ export async function registerRequest(
   return data as AuthResponse;
 }
 
-export async function meRequest(accessToken: string) {
+export type OrganizationStatus = "PENDING" | "APPROVED" | "REJECTED";
+
+export type MeResponse = AuthUser & {
+  createdAt: string;
+  isPlatformAdmin: boolean;
+  organization: {
+    id: string;
+    name: string;
+    email: string;
+    phone: string | null;
+    logo: string | null;
+    website: string | null;
+    signatoryName: string | null;
+    signatoryDesignation: string | null;
+    signatureUrl: string | null;
+    status: OrganizationStatus;
+    isDemo: boolean;
+  };
+};
+
+export async function meRequest(accessToken: string): Promise<MeResponse> {
   const response = await fetch(`${getApiBase()}/auth/me`, {
     headers: { Authorization: `Bearer ${accessToken}` },
   });
@@ -109,7 +129,35 @@ export async function meRequest(accessToken: string) {
     );
   }
 
-  return data;
+  return data as MeResponse;
+}
+
+export async function demoLoginRequest(): Promise<AuthResponse> {
+  const response = await fetch(`${getApiBase()}/auth/demo`, { method: "POST" });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new Error(
+      typeof data.message === "string"
+        ? data.message
+        : "The live demo is not available right now",
+    );
+  }
+  return data as AuthResponse;
+}
+
+export type AuthConfig = {
+  signupMode: "approval" | "closed";
+  demoEnabled: boolean;
+};
+
+export async function getAuthConfig(): Promise<AuthConfig> {
+  const response = await fetch(`${getApiBase()}/auth/config`, {
+    cache: "no-store",
+  });
+  if (!response.ok) {
+    return { signupMode: "approval", demoEnabled: false };
+  }
+  return (await response.json()) as AuthConfig;
 }
 
 export async function logoutRequest(accessToken: string) {

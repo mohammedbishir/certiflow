@@ -4,8 +4,9 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { EventStatus } from '@prisma/client';
+import { EventStatus, Prisma } from '@prisma/client';
 import { CertificatesService } from '../certificates/certificates.service.js';
+import { canIssueCertificates } from '../organizations/org-access.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { RegisterParticipantDto } from './dto/register-participant.dto.js';
 
@@ -32,6 +33,8 @@ export class PublicService {
           select: {
             name: true,
             logo: true,
+            status: true,
+            isDemo: true,
           },
         },
       },
@@ -47,7 +50,10 @@ export class PublicService {
       );
     }
 
-    if (event.status !== EventStatus.ACTIVE) {
+    if (
+      event.status !== EventStatus.ACTIVE ||
+      !canIssueCertificates(event.organization)
+    ) {
       throw new BadRequestException('Registration is closed for this event');
     }
 
@@ -60,6 +66,7 @@ export class PublicService {
       kind: event.kind,
       organizationName: event.organization.name,
       organizationLogo: event.organization.logo,
+      isDemo: event.organization.isDemo,
     };
   }
 
@@ -72,6 +79,7 @@ export class PublicService {
         status: true,
         kind: true,
         templateId: true,
+        organization: { select: { status: true, isDemo: true } },
       },
     });
 
@@ -85,7 +93,10 @@ export class PublicService {
       );
     }
 
-    if (event.status !== EventStatus.ACTIVE) {
+    if (
+      event.status !== EventStatus.ACTIVE ||
+      !canIssueCertificates(event.organization)
+    ) {
       throw new BadRequestException('Registration is closed for this event');
     }
 
@@ -104,21 +115,34 @@ export class PublicService {
       );
     }
 
-    const participant = await this.prisma.participant.create({
-      data: {
-        eventId: event.id,
-        fullName: dto.fullName.trim(),
-        email: dto.email.toLowerCase().trim(),
-        phone: dto.phone?.trim() || null,
-      },
-      select: {
-        id: true,
-        fullName: true,
-        email: true,
-        phone: true,
-        createdAt: true,
-      },
-    });
+    const participant = await this.prisma.participant
+      .create({
+        data: {
+          eventId: event.id,
+          fullName: dto.fullName.trim(),
+          email: dto.email.toLowerCase().trim(),
+          phone: dto.phone?.trim() || null,
+        },
+        select: {
+          id: true,
+          fullName: true,
+          email: true,
+          phone: true,
+          createdAt: true,
+        },
+      })
+      .catch((error: unknown) => {
+        // Double submit: the unique (eventId, email) index wins the race.
+        if (
+          error instanceof Prisma.PrismaClientKnownRequestError &&
+          error.code === 'P2002'
+        ) {
+          throw new ConflictException(
+            'You are already registered for this event with this email',
+          );
+        }
+        throw error;
+      });
 
     if (event.kind === 'SPORTS_MEET') {
       return {
@@ -133,9 +157,15 @@ export class PublicService {
       };
     }
 
-    const certificate = await this.certificatesService.issueForParticipant(
-      participant.id,
-    );
+    const certificate = await this.certificatesService
+      .issueForParticipant(participant.id)
+      .catch(async (error: unknown) => {
+        // Let the person retry instead of being stuck as "already registered".
+        await this.prisma.participant
+          .delete({ where: { id: participant.id } })
+          .catch(() => undefined);
+        throw error;
+      });
 
     return {
       message: 'Registration successful',

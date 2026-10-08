@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { OrgStatusBanner } from "@/components/org-status-banner";
 import { ThemeToggle } from "@/components/theme-toggle";
 
 type AppShellProps = {
@@ -80,6 +81,7 @@ export function AppShell({ title, subtitle, children, actions }: AppShellProps) 
           </div>
         ) : null}
       </header>
+      <OrgStatusBanner />
 
       <main className="mx-auto flex w-full min-w-0 max-w-5xl flex-1 flex-col px-4 py-6 sm:px-6 sm:py-10">
         <div className="mb-6 sm:mb-8">

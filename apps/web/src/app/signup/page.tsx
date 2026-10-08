@@ -1,16 +1,23 @@
 "use client";
 
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "react-toastify";
 import { ThemeToggle } from "@/components/theme-toggle";
-import { registerRequest, saveTokens } from "@/lib/auth";
+import { getAuthConfig, registerRequest, saveTokens } from "@/lib/auth";
 
 export default function SignupPage() {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [closed, setClosed] = useState(false);
+
+  useEffect(() => {
+    void getAuthConfig().then((config) =>
+      setClosed(config.signupMode === "closed"),
+    );
+  }, []);
   const [form, setForm] = useState({
     organizationName: "",
     organizationEmail: "",
@@ -68,7 +75,23 @@ export default function SignupPage() {
             Register your school or company and an admin account.
           </p>
 
-          <form onSubmit={onSubmit} className="mt-8 space-y-4">
+          {closed ? (
+            <div className="mt-8 rounded-xl border border-border bg-surface-muted/60 p-4 text-sm text-foreground">
+              New signups are closed right now. You can still{" "}
+              <Link href="/demo" className="font-medium text-accent hover:underline">
+                try the live demo
+              </Link>
+              .
+            </div>
+          ) : (
+          <>
+          <div className="mt-6 rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 text-sm leading-6 text-amber-900 dark:text-amber-100">
+            New organizations are reviewed before they can issue certificates.
+            You can sign in and design templates straight away; events and
+            certificates unlock once you&apos;re approved.
+          </div>
+
+          <form onSubmit={onSubmit} className="mt-6 space-y-4">
             <p className="text-xs font-medium uppercase tracking-wide text-accent">
               Organization
             </p>
@@ -178,6 +201,8 @@ export default function SignupPage() {
               {loading ? "Creating..." : "Create organization"}
             </button>
           </form>
+          </>
+          )}
 
           <p className="mt-6 text-center text-sm text-muted">
             Already have an account?{" "}

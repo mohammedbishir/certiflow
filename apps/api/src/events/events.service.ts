@@ -6,6 +6,7 @@ import {
 import { EventKind, EventStatus, Placement } from '@prisma/client';
 import { randomBytes } from 'crypto';
 import { CertificatesService } from '../certificates/certificates.service.js';
+import { assertCanIssueCertificates } from '../organizations/org-access.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { CreateEventDto } from './dto/create-event.dto.js';
 import { UpdateEventDto } from './dto/update-event.dto.js';
@@ -88,6 +89,9 @@ export class EventsService {
         'Select a certificate template before activating this event',
       );
     }
+    if (requestedStatus === EventStatus.ACTIVE) {
+      await this.assertOrgCanIssue(organizationId);
+    }
 
     const event = await this.prisma.event.create({
       data: {
@@ -125,6 +129,12 @@ export class EventsService {
       throw new BadRequestException(
         'Select a certificate template before activating this event',
       );
+    }
+    if (
+      nextStatus === EventStatus.ACTIVE &&
+      existing.status !== EventStatus.ACTIVE
+    ) {
+      await this.assertOrgCanIssue(organizationId);
     }
 
     // Removing the template while active closes registration automatically.
@@ -178,6 +188,9 @@ export class EventsService {
         'Select a certificate template before activating this event',
       );
     }
+    if (status === EventStatus.ACTIVE) {
+      await this.assertOrgCanIssue(organizationId);
+    }
 
     const event = await this.prisma.event.update({
       where: { id },
@@ -221,6 +234,9 @@ export class EventsService {
       throw new BadRequestException(
         'Select a certificate template before importing participants',
       );
+    }
+    if (event.kind === EventKind.WORKSHOP) {
+      await this.assertOrgCanIssue(organizationId);
     }
 
     const rows = this.parseParticipantCsv(csv);
@@ -426,6 +442,14 @@ export class EventsService {
     return cells;
   }
 
+  private async assertOrgCanIssue(organizationId: string) {
+    const organization = await this.prisma.organization.findUniqueOrThrow({
+      where: { id: organizationId },
+      select: { status: true, isDemo: true },
+    });
+    assertCanIssueCertificates(organization);
+  }
+
   private async assertTemplate(organizationId: string, templateId: string) {
     const template = await this.prisma.certificateTemplate.findFirst({
       where: { id: templateId, organizationId, isActive: true },
@@ -526,6 +550,9 @@ export class EventsService {
     },
   ) {
     await this.assertGame(organizationId, eventId, gameId);
+    if (dto.issueCertificate !== false) {
+      await this.assertOrgCanIssue(organizationId);
+    }
     const email = dto.email.toLowerCase().trim();
 
     let participant = await this.prisma.participant.findUnique({

@@ -1,4 +1,5 @@
 import { Body, Controller, Get, Param, Post } from '@nestjs/common';
+import { RateLimit } from '../common/rate-limit.js';
 import { RegisterParticipantDto } from './dto/register-participant.dto.js';
 import { PublicService } from './public.service.js';
 
@@ -12,6 +13,12 @@ export class PublicController {
   }
 
   @Post('events/:token/register')
+  @RateLimit({
+    name: 'public-register',
+    limit: 30,
+    windowMs: 60_000,
+    perParam: 'token',
+  })
   register(
     @Param('token') token: string,
     @Body() dto: RegisterParticipantDto,
